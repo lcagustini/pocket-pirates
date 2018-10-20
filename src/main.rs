@@ -5,6 +5,7 @@ use std::ops::{Add, Sub, Mul};
 use sdl2::event::Event;
 use sdl2::pixels::Color;
 use sdl2::keyboard::Scancode;
+use sdl2::keyboard::Keycode;
 use sdl2::image::LoadTexture;
 use sdl2::render::BlendMode;
 
@@ -69,6 +70,7 @@ impl Mul<f32> for Vector {
     }
 }
 
+#[derive (Copy, Clone)]
 struct Object {
     texture_id: usize,
 
@@ -77,6 +79,56 @@ struct Object {
 
     offset_x: isize,
     offset_y: isize,
+}
+
+struct Boat {
+    health: isize,
+
+    wood: isize,
+    mineral: isize,
+
+    obj: Object,
+}
+
+fn gather_resource(player_id : &mut usize, player_boat : &mut Boat, objects : &mut Vec<Object>, texture_id : usize) {
+    let mut x = 0;
+    let mut y = 0;
+    match texture_id {
+        4 => {
+            x = objects[*player_id].x;
+            y = objects[*player_id].y-1;
+        },
+        5 => {
+            x = objects[*player_id].x-1;
+            y = objects[*player_id].y;
+        },
+        6 => {
+            x = objects[*player_id].x;
+            y = objects[*player_id].y+1;
+        },
+        7 => {
+            x = objects[*player_id].x+1;
+            y = objects[*player_id].y;
+        },
+
+        _ => ()
+    }
+
+    let mut target : isize = -1;
+    for (i, obj) in objects.iter().enumerate() {
+        if obj.x == x && obj.y == y {
+            if obj.texture_id == 1 { // tree
+                target = i as isize;
+            }
+        }
+    }
+    if target != -1 {
+        if *player_id as isize > target {
+            *player_id -= 1;
+        }
+        objects.remove(target as usize);
+        player_boat.wood += 5;
+    }
 }
 
 fn main() {
@@ -155,6 +207,8 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
+    let mut player_boat = Boat{health: 20, wood: 0, mineral: 0, obj: objects[0]};
+
     let mut camera = Vector{x: 300.0, y: -200.0};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -165,6 +219,11 @@ fn main() {
             match event {
                 Event::Quit {..} => {
                     break 'running
+                },
+
+                Event::KeyUp { keycode: Some(Keycode::E), .. } => {
+                    let tid = objects[player_id].texture_id;
+                    gather_resource(&mut player_id, &mut player_boat, &mut objects, tid);
                 },
 
                 _ => {}
@@ -322,27 +381,27 @@ fn main() {
             canvas.fill_rect(rect).unwrap();
             canvas.set_blend_mode(BlendMode::None);
 
-            let font_s = font.render("30").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_s = font.render(&player_boat.wood.to_string()).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
             let rect = rect!(w_width - font_t_info.width, w_height - font_t_info.height * 2, font_t_info.width, font_t_info.height);
             canvas.copy(&font_t, None, rect).unwrap();
 
-            let font_s = font.render("40").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_s = font.render(&player_boat.mineral.to_string()).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
             let rect = rect!(w_width - font_t_info.width, w_height - font_t_info.height , font_t_info.width, font_t_info.height);
             canvas.copy(&font_t, None, rect).unwrap();
 
-            let wood_texture = &textures[8];
-            let tex_info = wood_texture.query();
-            let rect = rect!(w_width - 115, w_height - font_t_info.height, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
-            canvas.copy(&wood_texture, None, rect).unwrap();
-
             let metal_texture = &textures[9];
             let tex_info = metal_texture.query();
-            let rect = rect!(w_width - 115, w_height - (font_t_info.height * 2), tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            let rect = rect!(w_width - 115, w_height - (font_t_info.height), tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
             canvas.copy(&metal_texture, None, rect).unwrap();
+
+            let wood_texture = &textures[8];
+            let tex_info = wood_texture.query();
+            let rect = rect!(w_width - 115, w_height - (font_t_info.height * 2), tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            canvas.copy(&wood_texture, None, rect).unwrap();
         }
         
         if player_timer > 0 {
