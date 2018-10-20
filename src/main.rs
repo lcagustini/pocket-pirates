@@ -17,6 +17,13 @@ const WINDOW_HEIGHT: u32 = 720;
 
 const BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 255};
 const UI_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 110};
+const UI_BUTTON_COLOR: Color = Color{r: 255, g: 150, b: 150, a: 110};
+
+const ACTION_HUD_BORDER: u32 = 5;
+const ACTION_HUD_WIDTH: u32 = 700;
+const ACTION_HUD_HEIGHT: u32 = 200;
+const ACTION_HUD_BUTTON_WIDTH: u32 = 300;
+const ACTION_HUD_BUTTON_HEIGHT: u32 = 95;
 
 const FONT_SIZE: u16 = 40;
 
@@ -413,9 +420,10 @@ fn main() {
             }
         }
 
+        // draw materials HUD
         // TODO: maybe not rerender every frame
         {
-            let rect = rect!(w_width - 120, w_height - (2 * FONT_SIZE as u32 + 5), 120, 2 * FONT_SIZE as u32 + 5);
+            let rect = rect!(w_width - 125, w_height - (2 * FONT_SIZE as u32 + 10), 120, 2 * FONT_SIZE as u32 + 5);
             canvas.set_blend_mode(BlendMode::Blend);
             canvas.set_draw_color(UI_BG_COLOR);
             canvas.fill_rect(rect).unwrap();
@@ -424,23 +432,23 @@ fn main() {
             let font_s = font.render(&player_boat.wood.to_string()).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
-            let rect = rect!(w_width - font_t_info.width, w_height - font_t_info.height * 2, font_t_info.width, font_t_info.height);
+            let rect = rect!(w_width - font_t_info.width - 5, w_height - font_t_info.height * 2 - 5, font_t_info.width, font_t_info.height);
             canvas.copy(&font_t, None, rect).unwrap();
 
             let font_s = font.render(&player_boat.mineral.to_string()).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
-            let rect = rect!(w_width - font_t_info.width, w_height - font_t_info.height , font_t_info.width, font_t_info.height);
+            let rect = rect!(w_width - font_t_info.width - 5, w_height - font_t_info.height - 5, font_t_info.width, font_t_info.height);
             canvas.copy(&font_t, None, rect).unwrap();
 
             let metal_texture = &textures[9];
             let tex_info = metal_texture.query();
-            let rect = rect!(w_width - 115, w_height - (font_t_info.height), tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            let rect = rect!(w_width - 120, w_height - (font_t_info.height) - 5, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
             canvas.copy(&metal_texture, None, rect).unwrap();
 
             let wood_texture = &textures[8];
             let tex_info = wood_texture.query();
-            let rect = rect!(w_width - 115, w_height - (font_t_info.height * 2), tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            let rect = rect!(w_width - 120, w_height - (font_t_info.height * 2) - 5, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
             canvas.copy(&wood_texture, None, rect).unwrap();
         }
         
@@ -469,6 +477,7 @@ fn bubble_sort(obj: &mut Vec<Object>, player_id: &mut usize) {
 }
 
 fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
+    let texture_creator = canvas.texture_creator();
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
     let mut enemy_boat = Boat {health: 20, wood: 15, mineral: 5,
@@ -478,6 +487,8 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
     player_boat.obj.as_mut().unwrap().y = BOAT_PLAYER_COMBAT_Y;
 
     'running: loop {
+        let (w_width, w_height) = canvas.window().size();
+
         //Event handling
         for event in event_pump.poll_iter() {
             match event {
@@ -527,6 +538,71 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             }
         }
 
+        // draw actions HUD
+        {
+            let rect = rect!(ACTION_HUD_BORDER, w_height - ACTION_HUD_HEIGHT - ACTION_HUD_BORDER, ACTION_HUD_WIDTH, ACTION_HUD_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BG_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let rect = rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let rect = rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let rect = rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let rect = rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT,
+                             ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+        }
+
+        // draw materials HUD
+        // TODO: maybe not rerender every frame
+        {
+            let rect = rect!(w_width - 125, w_height - (2 * FONT_SIZE as u32 + 10), 120, 2 * FONT_SIZE as u32 + 5);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BG_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let font_s = font.render(&player_boat.wood.to_string()).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(w_width - font_t_info.width - 5, w_height - font_t_info.height * 2 - 5, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+
+            let font_s = font.render(&player_boat.mineral.to_string()).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(w_width - font_t_info.width - 5, w_height - font_t_info.height - 5, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+
+            let metal_texture = &textures[9];
+            let tex_info = metal_texture.query();
+            let rect = rect!(w_width - 120, w_height - (font_t_info.height) - 5, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            canvas.copy(&metal_texture, None, rect).unwrap();
+
+            let wood_texture = &textures[8];
+            let tex_info = wood_texture.query();
+            let rect = rect!(w_width - 120, w_height - (font_t_info.height * 2) - 5, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            canvas.copy(&wood_texture, None, rect).unwrap();
+        }
 
         canvas.present()
     }
