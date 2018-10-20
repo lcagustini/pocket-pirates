@@ -167,27 +167,79 @@ fn main() {
         {
             if event_pump.keyboard_state().is_scancode_pressed(Scancode::W) && player_timer == 0 {
                 player_last_pos = (objects[player_id].x, objects[player_id].y);
-                objects[player_id].y -= 1;
                 objects[player_id].texture_id = 4;
-                player_timer = 20;
+
+                let mut can_walk = true;
+                for obj in &objects {
+                    if obj.x == player_last_pos.0 && obj.y == player_last_pos.1 - 1 {
+                        can_walk = false;
+                        break;
+                    }
+                }
+                if map[player_last_pos.0 as usize][player_last_pos.1 as usize -1] == 2 {
+                    can_walk = false;
+                }
+                if can_walk {
+                    objects[player_id].y -= 1;
+                    player_timer = 20;
+                }
             }
             if event_pump.keyboard_state().is_scancode_pressed(Scancode::A) && player_timer == 0 {
                 player_last_pos = (objects[player_id].x, objects[player_id].y);
-                objects[player_id].x -= 1;
                 objects[player_id].texture_id = 5;
-                player_timer = 20;
+
+                let mut can_walk = true;
+                for obj in &objects {
+                    if obj.x == player_last_pos.0 - 1 && obj.y == player_last_pos.1 {
+                        can_walk = false;
+                        break;
+                    }
+                }
+                if map[player_last_pos.0 as usize -1][player_last_pos.1 as usize] == 2 {
+                    can_walk = false;
+                }
+                if can_walk {
+                    objects[player_id].x -= 1;
+                    player_timer = 20;
+                }
             }
             if event_pump.keyboard_state().is_scancode_pressed(Scancode::S) && player_timer == 0 {
                 player_last_pos = (objects[player_id].x, objects[player_id].y);
-                objects[player_id].y += 1;
                 objects[player_id].texture_id = 6;
-                player_timer = 20;
+
+                let mut can_walk = true;
+                for obj in &objects {
+                    if obj.x == player_last_pos.0 && obj.y == player_last_pos.1 + 1 {
+                        can_walk = false;
+                        break;
+                    }
+                }
+                if map[player_last_pos.0 as usize][player_last_pos.1 as usize +1] == 2 {
+                    can_walk = false;
+                }
+                if can_walk {
+                    objects[player_id].y += 1;
+                    player_timer = 20;
+                }
             }
             if event_pump.keyboard_state().is_scancode_pressed(Scancode::D) && player_timer == 0 {
                 player_last_pos = (objects[player_id].x, objects[player_id].y);
-                objects[player_id].x += 1;
                 objects[player_id].texture_id = 7;
-                player_timer = 20;
+
+                let mut can_walk = true;
+                for obj in &objects {
+                    if obj.x == player_last_pos.0 + 1 && obj.y == player_last_pos.1 {
+                        can_walk = false;
+                        break;
+                    }
+                }
+                if map[player_last_pos.0 as usize +1][player_last_pos.1 as usize] == 2 {
+                    can_walk = false;
+                }
+                if can_walk {
+                    objects[player_id].x += 1;
+                    player_timer = 20;
+                }
             }
 
             if event_pump.keyboard_state().is_scancode_pressed(Scancode::Up) {
