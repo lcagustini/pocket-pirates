@@ -6,6 +6,7 @@ use sdl2::event::Event;
 use sdl2::pixels::Color;
 use sdl2::keyboard::Scancode;
 use sdl2::image::LoadTexture;
+use sdl2::render::BlendMode;
 
 macro_rules! rect(($x:expr, $y:expr, $w:expr, $h:expr) =>
                   (sdl2::rect::Rect::new($x as i32, $y as i32, $w as u32, $h as u32)));
@@ -14,8 +15,9 @@ const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 720;
 
 const BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 255};
+const UI_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 110};
 
-const FONT_SIZE: u16 = 20;
+const FONT_SIZE: u16 = 40;
 
 const TILE_WIDTH: isize = 132;
 const TILE_HEIGHT: isize = 99;
@@ -95,6 +97,8 @@ fn main() {
 
     let mut canvas = window.into_canvas().accelerated().present_vsync().build().unwrap();
     let texture_creator = canvas.texture_creator();
+    //canvas.set_logical_size(1920, 1080);
+    //canvas.set_scale(0.5, 0.5);
 
     let textures = vec!(
         texture_creator.load_texture("assets/grass.png").unwrap(),
@@ -105,7 +109,9 @@ fn main() {
         texture_creator.load_texture("assets/player_NW.png").unwrap(),
         texture_creator.load_texture("assets/player_SW.png").unwrap(),
         texture_creator.load_texture("assets/player_SE.png").unwrap(),
-        );
+        texture_creator.load_texture("assets/wood.png").unwrap(),
+        texture_creator.load_texture("assets/mineral.png").unwrap(),
+    );
 
     let map: [[usize; 20]; 20] = [
         [2; 20],
@@ -149,9 +155,10 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
-    let mut camera = Vector{x: 0.0, y: 0.0};
+    let mut camera = Vector{x: 300.0, y: -200.0};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
+
     'running: loop {
         //Event handling
         for event in event_pump.poll_iter() {
@@ -259,8 +266,8 @@ fn main() {
         //Drawing
         canvas.set_draw_color(BG_COLOR);
         canvas.clear();
+        let (w_width, w_height) = canvas.window().size();
         {
-            let (w_width, w_height) = canvas.window().size();
 
             for y in 0..map.len() as isize {
                 for x in 0..map.len() as isize {
@@ -306,11 +313,43 @@ fn main() {
                 canvas.copy(texture, None, rect).unwrap();
             }
         }
-        canvas.present();
 
+        // TODO: maybe not rerender every frame
+        {
+            let rect = rect!(w_width - 120, w_height - (2 * FONT_SIZE as u32 + 5), 120, 2 * FONT_SIZE as u32 + 5);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BG_COLOR);
+            canvas.fill_rect(rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let font_s = font.render("30").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(w_width - font_t_info.width, w_height - font_t_info.height * 2, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+
+            let font_s = font.render("40").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(w_width - font_t_info.width, w_height - font_t_info.height , font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+
+            let wood_texture = &textures[8];
+            let tex_info = wood_texture.query();
+            let rect = rect!(w_width - 115, w_height - font_t_info.height, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            canvas.copy(&wood_texture, None, rect).unwrap();
+
+            let metal_texture = &textures[9];
+            let tex_info = metal_texture.query();
+            let rect = rect!(w_width - 115, w_height - (font_t_info.height * 2), tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
+            canvas.copy(&metal_texture, None, rect).unwrap();
+        }
+        
         if player_timer > 0 {
             player_timer -= 1;
         }
+
+        canvas.present();
     }
 }
 
