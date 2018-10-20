@@ -33,6 +33,11 @@ const BOAT_OFFSET_X: isize = 0;
 const BOAT_OFFSET_Y: isize = 30;
 const BOAT_COST: isize = 10;
 
+const BOAT_PLAYER_COMBAT_X: isize = 9;
+const BOAT_PLAYER_COMBAT_Y: isize = 12;
+const BOAT_ENEMY_COMBAT_X: isize = 10;
+const BOAT_ENEMY_COMBAT_Y: isize = 4;
+
 const CAMERA_X: isize = 500;
 const CAMERA_Y: isize = -400;
 
@@ -255,7 +260,7 @@ fn main() {
                 Event::KeyUp { keycode: Some(Keycode::B), .. } => {
                     if player_boat.wood >= BOAT_COST {
                         player_boat.wood -= BOAT_COST;
-                        player_boat.obj = Some(Object{texture_id: 12, x: BOAT_X, y: BOAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y});
+                        player_boat.obj = Some(Object{texture_id: 13, x: BOAT_X, y: BOAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y});
                     }
                 },
 
@@ -463,8 +468,14 @@ fn bubble_sort(obj: &mut Vec<Object>, player_id: &mut usize) {
     }
 }
 
-fn start_combat_phase(player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
+fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
+
+    let mut enemy_boat = Boat {health: 20, wood: 15, mineral: 5,
+        obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+
+    player_boat.obj.as_mut().unwrap().x = BOAT_PLAYER_COMBAT_X;
+    player_boat.obj.as_mut().unwrap().y = BOAT_PLAYER_COMBAT_Y;
 
     'running: loop {
         //Event handling
@@ -490,6 +501,32 @@ fn start_combat_phase(player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2
                 canvas.copy(&textures[map[x as usize][y as usize]], None, rect).unwrap();
             }
         }
+
+        // draw boats
+        {
+            // player boat
+            {
+                let obj = player_boat.obj.unwrap();
+                let texture = &textures[obj.texture_id];
+                let texture_info = texture.query();
+                let x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                let y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+                let rect = rect!(x, y, texture_info.width, texture_info.height);
+                canvas.copy(texture, None, rect).unwrap();
+            }
+
+            // enemy boat
+            {
+                let obj = enemy_boat.obj.unwrap();
+                let texture = &textures[obj.texture_id];
+                let texture_info = texture.query();
+                let x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                let y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+                let rect = rect!(x, y, texture_info.width, texture_info.height);
+                canvas.copy(texture, None, rect).unwrap();
+            }
+        }
+
 
         canvas.present()
     }
