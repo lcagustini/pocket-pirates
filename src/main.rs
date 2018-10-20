@@ -8,7 +8,7 @@ use sdl2::keyboard::Scancode;
 use sdl2::image::LoadTexture;
 
 macro_rules! rect(($x:expr, $y:expr, $w:expr, $h:expr) =>
-        (sdl2::rect::Rect::new($x as i32, $y as i32, $w as u32, $h as u32)));
+                  (sdl2::rect::Rect::new($x as i32, $y as i32, $w as u32, $h as u32)));
 
 const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 720;
@@ -69,9 +69,6 @@ impl Mul<f32> for Vector {
 
 struct Object {
     texture_id: usize,
-    
-    width: usize,
-    height: usize,
 
     x: isize,
     y: isize,
@@ -84,15 +81,15 @@ fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let ttf_context = sdl2::ttf::init().unwrap();
-    let image_context = sdl2::image::init(sdl2::image::INIT_PNG);
-    
+    let _image_context = sdl2::image::init(sdl2::image::INIT_PNG);
+
     let window = video_subsystem.window("Pocket Pirates", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .allow_highdpi()
         .resizable()
         .build()
         .unwrap();
-    
+
     let mut font = ttf_context.load_font("roboto.ttf", FONT_SIZE).unwrap();
     font.set_style(sdl2::ttf::STYLE_NORMAL);
 
@@ -104,8 +101,12 @@ fn main() {
         texture_creator.load_texture("assets/tree.png").unwrap(),
         texture_creator.load_texture("assets/water.png").unwrap(),
         texture_creator.load_texture("assets/sand.png").unwrap(),
-    );
-    
+        texture_creator.load_texture("assets/player_NE.png").unwrap(),
+        texture_creator.load_texture("assets/player_NW.png").unwrap(),
+        texture_creator.load_texture("assets/player_SW.png").unwrap(),
+        texture_creator.load_texture("assets/player_SE.png").unwrap(),
+        );
+
     let map: [[usize; 20]; 20] = [
         [2; 20],
         [2; 20],
@@ -126,26 +127,29 @@ fn main() {
         [2; 20],
         [2; 20],
         [2; 20],
-        [2; 20],
-    ];
+        [2; 20]];
 
-    let mut objects: Vec<Object> = Vec::new();
-    objects.push(Object{texture_id: 1,
-        width: 132,
-        height: 195,
-        x: 7,
-        y: 9,
-        offset_x: 0,
-        offset_y: -150});
-    objects.push(Object{texture_id: 1,
-        width: 132,
-        height: 195,
-        x: 7,
-        y: 10,
-        offset_x: 0,
-        offset_y: -150});
+    let mut objects: Vec<Object> = vec!(
+        Object{texture_id: 4,
+            x: 8,
+            y: 10,
+            offset_x: 35,
+            offset_y: -60},
+        Object{texture_id: 1,
+            x: 7,
+            y: 9,
+            offset_x: 0,
+            offset_y: -150},
+        Object{texture_id: 1,
+            x: 7,
+            y: 10,
+            offset_x: 0,
+            offset_y: -150});
+    let mut player_id = 0;
+    let mut player_timer = 0;
+    let mut player_last_pos = (0, 0);
 
-    let mut camera = Vector{x: 400.0, y: 0.0};
+    let mut camera = Vector{x: 0.0, y: 0.0};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'running: loop {
@@ -161,16 +165,41 @@ fn main() {
         }
 
         {
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::W) {
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::W) && player_timer == 0 {
+                player_last_pos = (objects[player_id].x, objects[player_id].y);
+                objects[player_id].y -= 1;
+                objects[player_id].texture_id = 4;
+                player_timer = 20;
+            }
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::A) && player_timer == 0 {
+                player_last_pos = (objects[player_id].x, objects[player_id].y);
+                objects[player_id].x -= 1;
+                objects[player_id].texture_id = 5;
+                player_timer = 20;
+            }
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::S) && player_timer == 0 {
+                player_last_pos = (objects[player_id].x, objects[player_id].y);
+                objects[player_id].y += 1;
+                objects[player_id].texture_id = 6;
+                player_timer = 20;
+            }
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::D) && player_timer == 0 {
+                player_last_pos = (objects[player_id].x, objects[player_id].y);
+                objects[player_id].x += 1;
+                objects[player_id].texture_id = 7;
+                player_timer = 20;
+            }
+
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Up) {
                 camera.y += 5.0;
             }
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::A) {
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Left) {
                 camera.x += 5.0;
             }
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::S) {
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Down) {
                 camera.y -= 5.0;
             }
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::D) {
+            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Right) {
                 camera.x -= 5.0;
             }
         }
@@ -191,14 +220,60 @@ fn main() {
                 }
             }
 
-            for obj in &objects {
-                let rect = rect!(camera.x as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x,
-                                 camera.y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y,
-                                 obj.width, obj.height);
+            bubble_sort(&mut objects, &mut player_id);
+            for (i, obj) in objects.iter().enumerate() {
+                let texture = &textures[obj.texture_id];
+                let texture_info = texture.query();
 
-                canvas.copy(&textures[obj.texture_id], None, rect).unwrap();
+                let mut offset = (0, 0);
+                if i == player_id {
+                    let dx = obj.x - player_last_pos.0;
+                    let dy = obj.y - player_last_pos.1;
+
+                    let ratio = player_timer as f32 / 20.0;
+
+                    if dx == -1 {
+                        offset = ((ratio * HALF_TILE_WIDTH as f32) as isize, (ratio * HALF_TILE_HEIGHT as f32) as isize);
+                    }
+                    if dx == 1 {
+                        offset = (-(ratio * HALF_TILE_WIDTH as f32) as isize, -(ratio * HALF_TILE_HEIGHT as f32) as isize);
+                    }
+                    if dy == -1 {
+                        offset = (-(ratio * HALF_TILE_WIDTH as f32) as isize, (ratio * HALF_TILE_HEIGHT as f32) as isize);
+                    }
+                    if dy == 1 {
+                        offset = ((ratio * HALF_TILE_WIDTH as f32) as isize, -(ratio * HALF_TILE_HEIGHT as f32) as isize);
+                    }
+                }
+
+                let x = offset.0 + camera.x as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                let y = offset.1 + camera.y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                let rect = rect!(x, y, texture_info.width, texture_info.height);
+
+                canvas.copy(texture, None, rect).unwrap();
             }
         }
-        canvas.present();        
+        canvas.present();
+
+        if player_timer > 0 {
+            player_timer -= 1;
+        }
+    }
+}
+
+fn bubble_sort(obj: &mut Vec<Object>, player_id: &mut usize) {
+    for i in 0..obj.len() {
+        for j in i+1..obj.len() {
+            if obj[i].y > obj[j].y || (obj[i].y == obj[j].y && obj[i].x > obj[j].x) {
+                if i == *player_id {
+                    *player_id = j;
+                }
+                else if j == *player_id {
+                    *player_id = i;
+                }
+                obj.swap(i, j);
+            }
+        }
     }
 }
