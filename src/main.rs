@@ -27,6 +27,15 @@ const TILE_GROUND: isize = 2*TILE_HEIGHT/3;
 const HALF_TILE_WIDTH: isize = TILE_WIDTH/2;
 const HALF_TILE_HEIGHT: isize = TILE_GROUND/2;
 
+const BOAT_X: isize = 8;
+const BOAT_Y: isize = 12;
+const BOAT_OFFSET_X: isize = 0;
+const BOAT_OFFSET_Y: isize = 30;
+const BOAT_COST: isize = 10;
+
+const CAMERA_X: isize = 500;
+const CAMERA_Y: isize = -400;
+
 #[derive(Debug, Copy, Clone)]
 struct Vector {
     x: f32,
@@ -87,7 +96,7 @@ struct Boat {
     wood: isize,
     mineral: isize,
 
-    obj: Object,
+    obj: Option<Object>,
 }
 
 fn gather_resource(player_id : &mut usize, player_boat : &mut Boat, objects : &mut Vec<Object>, texture_id : usize) {
@@ -163,29 +172,43 @@ fn main() {
         texture_creator.load_texture("assets/player_SE.png").unwrap(),
         texture_creator.load_texture("assets/wood.png").unwrap(),
         texture_creator.load_texture("assets/mineral.png").unwrap(),
+        texture_creator.load_texture("assets/boat_small_NE.png").unwrap(),
+        texture_creator.load_texture("assets/boat_small_NW.png").unwrap(),
+        texture_creator.load_texture("assets/boat_small_SW.png").unwrap(),
+        texture_creator.load_texture("assets/boat_small_SE.png").unwrap(),
     );
 
-    let map: [[usize; 20]; 20] = [
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2],
-        [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20],
-        [2; 20]];
+    let map: [[usize; 30]; 30] = [
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30],
+        [2; 30]];
 
     let mut objects: Vec<Object> = vec!(
         Object{texture_id: 4,
@@ -207,9 +230,7 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
-    let mut player_boat = Boat{health: 20, wood: 0, mineral: 0, obj: objects[0]};
-
-    let mut camera = Vector{x: 300.0, y: -200.0};
+    let mut player_boat = Boat{health: 20, wood: 0, mineral: 0, obj: None};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -224,6 +245,18 @@ fn main() {
                 Event::KeyUp { keycode: Some(Keycode::E), .. } => {
                     let tid = objects[player_id].texture_id;
                     gather_resource(&mut player_id, &mut player_boat, &mut objects, tid);
+
+                    if (objects[player_id].x - BOAT_X).abs() <= 1 && (objects[player_id].y - BOAT_Y).abs() <= 1 && player_boat.obj.is_some() {
+                        start_combat_phase(player_boat, canvas, textures, font, event_pump);
+                        break 'running
+                    }
+                },
+
+                Event::KeyUp { keycode: Some(Keycode::B), .. } => {
+                    if player_boat.wood >= BOAT_COST {
+                        player_boat.wood -= BOAT_COST;
+                        player_boat.obj = Some(Object{texture_id: 12, x: BOAT_X, y: BOAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y});
+                    }
                 },
 
                 _ => {}
@@ -307,19 +340,6 @@ fn main() {
                     player_timer = 20;
                 }
             }
-
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Up) {
-                camera.y += 5.0;
-            }
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Left) {
-                camera.x += 5.0;
-            }
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Down) {
-                camera.y -= 5.0;
-            }
-            if event_pump.keyboard_state().is_scancode_pressed(Scancode::Right) {
-                camera.x -= 5.0;
-            }
         }
 
         //Drawing
@@ -330,8 +350,8 @@ fn main() {
 
             for y in 0..map.len() as isize {
                 for x in 0..map.len() as isize {
-                    let rect = rect!(camera.x as isize + x * HALF_TILE_WIDTH - y * HALF_TILE_WIDTH,
-                                     camera.y as isize + x * HALF_TILE_HEIGHT + y * HALF_TILE_HEIGHT,
+                    let rect = rect!(CAMERA_X as isize + x * HALF_TILE_WIDTH - y * HALF_TILE_WIDTH,
+                                     CAMERA_Y as isize + x * HALF_TILE_HEIGHT + y * HALF_TILE_HEIGHT,
                                      TILE_WIDTH, TILE_HEIGHT);
 
                     canvas.copy(&textures[map[x as usize][y as usize]], None, rect).unwrap();
@@ -364,12 +384,27 @@ fn main() {
                     }
                 }
 
-                let x = offset.0 + camera.x as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
-                let y = offset.1 + camera.y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+                let x = offset.0 + CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                let y = offset.1 + CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
 
                 let rect = rect!(x, y, texture_info.width, texture_info.height);
 
                 canvas.copy(texture, None, rect).unwrap();
+            }
+        }
+
+        // draw boat
+        {
+            match player_boat.obj {
+                Some(obj) => {
+                    let texture = &textures[obj.texture_id];
+                    let texture_info = texture.query();
+                    let x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                    let y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+                    let rect = rect!(x, y, texture_info.width, texture_info.height);
+                    canvas.copy(texture, None, rect).unwrap();
+                }, 
+                None => ()
             }
         }
 
@@ -425,5 +460,37 @@ fn bubble_sort(obj: &mut Vec<Object>, player_id: &mut usize) {
                 obj.swap(i, j);
             }
         }
+    }
+}
+
+fn start_combat_phase(player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
+    let map: [[usize; 30]; 30] = [[2; 30]; 30];
+
+    'running: loop {
+        //Event handling
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} => {
+                    break 'running
+                },
+
+                _ => {}
+            }
+        }
+
+        canvas.set_draw_color(BG_COLOR);
+        canvas.clear();
+
+        for y in 0..map.len() as isize {
+            for x in 0..map.len() as isize {
+                let rect = rect!(CAMERA_X as isize + x * HALF_TILE_WIDTH - y * HALF_TILE_WIDTH,
+                                 CAMERA_Y as isize + x * HALF_TILE_HEIGHT + y * HALF_TILE_HEIGHT,
+                                 TILE_WIDTH, TILE_HEIGHT);
+
+                canvas.copy(&textures[map[x as usize][y as usize]], None, rect).unwrap();
+            }
+        }
+
+        canvas.present()
     }
 }
