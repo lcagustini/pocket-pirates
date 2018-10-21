@@ -2,6 +2,7 @@ extern crate sdl2;
 extern crate rand;
 
 use std::ops::{Add, Sub, Mul};
+use std::collections::HashSet;
 
 use rand::prelude::*;
 
@@ -17,6 +18,8 @@ macro_rules! rect(($x:expr, $y:expr, $w:expr, $h:expr) =>
 
 const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 720;
+
+const MISS_CHANCE: u8 = 55;
 
 const BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 255};
 const UI_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 110};
@@ -126,7 +129,9 @@ struct Boat {
     obj: Option<Object>,
 
     attacks: Vec<AttackType>,
-    parts: Vec<Target>
+    parts: HashSet<Target>,
+
+    enabled_parts: HashSet<Target>,
 }
 
 fn gather_resource(player_id : &mut usize, player_boat : &mut Boat, objects : &mut Vec<Object>, texture_id : usize) {
@@ -255,7 +260,8 @@ fn main() {
     let mut player_last_pos = (0, 0);
 
     let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None, attacks: vec!(AttackType::NORMAL),
-                               parts: vec!(Target::HELM, Target::POLE, Target::CANNON1)};
+                               parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                               enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect()};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -428,7 +434,7 @@ fn main() {
                     let y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
                     let rect = rect!(x, y, texture_info.width, texture_info.height);
                     canvas.copy(texture, None, rect).unwrap();
-                }, 
+                },
                 None => ()
             }
         }
@@ -464,7 +470,7 @@ fn main() {
             let rect = rect!(w_width - 120, w_height - (font_t_info.height * 2) - 5, tex_info.width as f32 * (font_t_info.height as f32 / tex_info.height as f32), font_t_info.height);
             canvas.copy(&wood_texture, None, rect).unwrap();
         }
-        
+
         if player_timer > 0 {
             player_timer -= 1;
         }
@@ -504,7 +510,7 @@ enum AttackType {
     NORMAL
 }
 
-#[derive (Copy, Clone)]
+#[derive (Copy, Clone, Eq, PartialEq, Hash, Debug)]
 enum Target {
     NONE,
     CANNON1,
@@ -554,7 +560,12 @@ fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, 
     let rand : usize = random::<usize>() % enemy.attacks.len();
     *cur_attack = enemy.attacks[rand];
     let rand : usize = random::<usize>() % player.parts.len();
-    *cur_target = player.parts[rand];
+    let mut iter = player.parts.iter();
+    let mut target: Target = Target::POLE;
+    for _ in 0..rand {
+        target = *iter.next().unwrap();
+    }
+    *cur_target = target;
 }
 
 fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump, ttf_context : &sdl2::ttf::Sdl2TtfContext) {
@@ -562,7 +573,8 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
     let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, attacks: vec!(AttackType::NORMAL),
-                               parts: vec!(Target::HELM, Target::POLE, Target::CANNON1),
+                               parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                               enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
 
     player_boat.obj.as_mut().unwrap().x = BOAT_PLAYER_COMBAT_X;
@@ -616,16 +628,16 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                         ButtonType::ATTACK => {
                                             cur_menu = Menu::TARGET;
                                             // TODO: depending on the enemy, the number of cannons may vary
-                                            cur_buttons[0].enabled = true;
+                                            cur_buttons[0].enabled = enemy_boat.parts.contains(&Target::POLE);
                                             cur_buttons[0].typ = ButtonType::POLE;
                                             cur_buttons[0].text = "Mastro".to_owned();
-                                            cur_buttons[1].enabled = true;
+                                            cur_buttons[1].enabled = enemy_boat.parts.contains(&Target::HELM);
                                             cur_buttons[1].typ = ButtonType::HELM;
                                             cur_buttons[1].text = "Timão".to_owned();
-                                            cur_buttons[2].enabled = true;
+                                            cur_buttons[2].enabled = enemy_boat.parts.contains(&Target::CANNON1);
                                             cur_buttons[2].typ = ButtonType::CANNON1;
                                             cur_buttons[2].text = "Canhão 1".to_owned();
-                                            cur_buttons[3].enabled = true;
+                                            cur_buttons[3].enabled = enemy_boat.parts.contains(&Target::CANNON2);
                                             cur_buttons[3].typ = ButtonType::CANNON2;
                                             cur_buttons[3].text = "Canhão 2".to_owned();
 
@@ -789,6 +801,153 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             }
         }
 
+        // draw systems HUD
+        {
+            // player
+            {
+                let shield = &textures[16];
+                let tex_info = shield.query();
+
+                let rect = rect!(5, 10.0 + LIFE_BAR_ICON_SCALE * tex_info.height as f32, 400, 4 * FONT_SIZE as u32 + 5);
+                canvas.set_blend_mode(BlendMode::Blend);
+                canvas.set_draw_color(UI_BG_COLOR);
+                canvas.fill_rect(rect).unwrap();
+                canvas.set_blend_mode(BlendMode::None);
+
+                if player_boat.parts.contains(&Target::HELM) {
+                    let font_s =
+                        if player_boat.enabled_parts.contains(&Target::HELM) {
+                            font.render("Timao: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Timao: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+
+                if player_boat.parts.contains(&Target::POLE) {
+                    let font_s =
+                        if player_boat.enabled_parts.contains(&Target::POLE) {
+                            font.render("Mastro: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Mastro: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+
+                if player_boat.parts.contains(&Target::CANNON1) {
+                    let font_s =
+                        if player_boat.enabled_parts.contains(&Target::CANNON1) {
+                            font.render("Canhao 1: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Canhao 1: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (2*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+
+                if player_boat.parts.contains(&Target::CANNON2) {
+                    let font_s =
+                        if player_boat.enabled_parts.contains(&Target::CANNON2) {
+                            font.render("Canhao 2: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Canhao 2: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (3*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+            }
+
+            //enemy
+            {
+                let shield = &textures[16];
+                let tex_info = shield.query();
+
+                let rect = rect!(w_width - 400 - 5, 10.0 + LIFE_BAR_ICON_SCALE * tex_info.height as f32, 400, 4 * FONT_SIZE as u32 + 5);
+                canvas.set_blend_mode(BlendMode::Blend);
+                canvas.set_draw_color(UI_BG_COLOR);
+                canvas.fill_rect(rect).unwrap();
+                canvas.set_blend_mode(BlendMode::None);
+
+                    if enemy_boat.parts.contains(&Target::HELM) {
+                    let font_s =
+                        if enemy_boat.enabled_parts.contains(&Target::HELM) {
+                            font.render("Timao: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Timao: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+
+                if enemy_boat.parts.contains(&Target::POLE) {
+                    let font_s =
+                        if enemy_boat.enabled_parts.contains(&Target::POLE) {
+                            font.render("Mastro: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Mastro: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+
+                if enemy_boat.parts.contains(&Target::CANNON1) {
+                    let font_s =
+                        if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
+                            font.render("Canhao 1: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Canhao 1: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (2*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+
+                if enemy_boat.parts.contains(&Target::CANNON2) {
+                    let font_s =
+                        if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
+                            font.render("Canhao 2: OK").blended(Color::RGBA(255, 255, 255, 255)).unwrap()
+                        }
+                        else {
+                            font.render("Canhao 2: Destruido").blended(Color::RGBA(255, 55, 55, 255)).unwrap()
+                        };
+
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (3*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+            }
+        }
+
         // draw materials HUD
         // TODO: maybe not rerender every frame
         {
@@ -849,32 +1008,186 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                              tex_info.width, tex_info.height);
             canvas.copy(&ball_texture, None, rect).unwrap();
 
+            if player_boat.parts.contains(&Target::CANNON2) {
+                let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
+                                 (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 70,
+                                 tex_info.width, tex_info.height);
+                canvas.copy(&ball_texture, None, rect).unwrap();
+            }
+
             let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
                              (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 50,
                              tex_info.width, tex_info.height);
             canvas.copy(&ball_texture, None, rect).unwrap();
 
+            if enemy_boat.parts.contains(&Target::CANNON2) {
+                let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
+                                 (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 30,
+                                 tex_info.width, tex_info.height);
+                canvas.copy(&ball_texture, None, rect).unwrap();
+            }
+
             // damage
             if animation_timer == 0 {
                 if cur_player_attack_type == AttackType::NORMAL {
-                    if do_damage(&mut enemy_boat, 1) {
+                    let mut damage = 0;
+                    if player_boat.enabled_parts.contains(&Target::CANNON1) {
+                        damage += 2;
+                    }
+                    else if player_boat.parts.contains(&Target::CANNON1) {
+                        damage += 1;
+                    }
 
-                        // TODO: shipwreck
-                        // TODO: choose boat
-                        // TODO: repair boat
-                        // TODO: next battle
-                        // TODO: kill enemy
+                    if player_boat.enabled_parts.contains(&Target::CANNON2) {
+                        damage += 2;
+                    }
+                    else if player_boat.parts.contains(&Target::CANNON2) {
+                        damage += 1;
+                    }
 
-                        player_boat.wood += enemy_boat.wood;
-                        player_boat.mineral += enemy_boat.mineral;
+                    let miss =
+                        if enemy_boat.enabled_parts.contains(&Target::HELM) {
+                            MISS_CHANCE
+                        }
+                        else {
+                            0
+                        };
 
-                        enemy_defeated = 3;
+                    let rand = random::<u8>();
+                    if rand >= miss {
+                        match cur_player_target {
+                            Target::POLE => {
+                                if enemy_boat.enabled_parts.contains(&Target::POLE) {
+                                    enemy_boat.enabled_parts.remove(&Target::POLE);
+                                }
+                                damage = (damage as f32 * 1.5) as isize;
+                            },
+                            Target::HELM => {
+                                if enemy_boat.enabled_parts.contains(&Target::HELM) {
+                                    enemy_boat.enabled_parts.remove(&Target::HELM);
+                                }
+                            },
+                            Target::CANNON1 => {
+                                if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
+                                    enemy_boat.enabled_parts.remove(&Target::CANNON1);
+                                }
+                            },
+                            Target::CANNON2 => {
+                                if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
+                                    enemy_boat.enabled_parts.remove(&Target::CANNON2);
+                                }
+                            },
+                            _ => ()
+                        }
+
+                        if do_damage(&mut enemy_boat, damage) {
+
+                            // TODO: shipwreck
+                            // TODO: choose boat
+                            // TODO: repair boat
+                            // TODO: next battle
+                            // TODO: kill enemy
+
+                            player_boat.wood += enemy_boat.wood;
+                            player_boat.mineral += enemy_boat.mineral;
+
+                            enemy_defeated = 3;
+                        }
+                    }
+                    else {
+                        let obj = player_boat.obj.unwrap();
+                        let player_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                        let player_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                        let obj = enemy_boat.obj.unwrap();
+                        let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                        let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                        let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                        let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                        let font_t_info = font_t.query();
+                        let rect = rect!(player_x + 10,
+                                         player_y + 100,
+                                         font_t_info.width, font_t_info.height);
+                        canvas.copy(&font_t, None, rect).unwrap();
+                        canvas.present();
+                        std::thread::sleep(std::time::Duration::from_millis(200));
                     }
                 }
                 if cur_enemy_attack_type == AttackType::NORMAL {
-                    if do_damage(&mut player_boat, 1) {
-                        game_over_loop(canvas, textures, event_pump);
-                        break 'running
+                    let mut damage = 0;
+                    if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
+                        damage += 2;
+                    }
+                    else if enemy_boat.parts.contains(&Target::CANNON1) {
+                        damage += 1;
+                    }
+
+                    if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
+                        damage += 2;
+                    }
+                    else if enemy_boat.parts.contains(&Target::CANNON2) {
+                        damage += 1;
+                    }
+
+                    let miss =
+                        if player_boat.enabled_parts.contains(&Target::HELM) {
+                            MISS_CHANCE
+                        }
+                        else {
+                            0
+                        };
+
+                    let rand = random::<u8>();
+                    if rand >= miss {
+                        match cur_enemy_target {
+                            Target::POLE => {
+                                if player_boat.enabled_parts.contains(&Target::POLE) {
+                                    player_boat.enabled_parts.remove(&Target::POLE);
+                                }
+                                damage = (damage as f32 * 1.5) as isize;
+                            },
+                            Target::HELM => {
+                                if player_boat.enabled_parts.contains(&Target::HELM) {
+                                    player_boat.enabled_parts.remove(&Target::HELM);
+                                }
+                            },
+                            Target::CANNON1 => {
+                                if player_boat.enabled_parts.contains(&Target::CANNON1) {
+                                    player_boat.enabled_parts.remove(&Target::CANNON1);
+                                }
+                            },
+                            Target::CANNON2 => {
+                                if player_boat.enabled_parts.contains(&Target::CANNON2) {
+                                    player_boat.enabled_parts.remove(&Target::CANNON2);
+                                }
+                            },
+                            _ => ()
+                        }
+
+                        if do_damage(&mut player_boat, damage) {
+                            game_over_loop(canvas, textures, event_pump);
+                            break 'running
+                        }
+                    }
+                    else {
+                        let obj = player_boat.obj.unwrap();
+                        let player_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                        let player_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                        let obj = enemy_boat.obj.unwrap();
+                        let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                        let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                        let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                        let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                        let font_t_info = font_t.query();
+                        let rect = rect!(enemy_x + 10,
+                                         enemy_y + 100,
+                                         font_t_info.width, font_t_info.height);
+                        canvas.copy(&font_t, None, rect).unwrap();
+                        canvas.present();
+                        std::thread::sleep(std::time::Duration::from_millis(200));
                     }
                 }
 
@@ -993,8 +1306,11 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                 }
                             }
                             if option == 2 { // next battle
+                                player_boat.enabled_parts = player_boat.parts.clone();
+
                                 *enemy_boat = Boat{health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, attacks: vec!(AttackType::NORMAL),
-                                                  parts: vec!(Target::HELM, Target::POLE, Target::CANNON1),
+                                                  parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                  enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                   obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
                                                             offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
                                 return false;
