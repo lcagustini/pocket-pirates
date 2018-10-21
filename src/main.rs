@@ -22,6 +22,10 @@ const BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 255};
 const UI_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 110};
 const UI_BUTTON_COLOR: Color = Color{r: 255, g: 150, b: 150, a: 110};
 
+const BATTLE_RESULT_BG_WIDTH: u32 = (WINDOW_WIDTH as f32 * 0.8) as u32;
+const BATTLE_RESULT_BG_HEIGHT: u32 = (WINDOW_HEIGHT as f32 * 0.8) as u32;
+const BATTLE_RESULT_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 200};
+
 const ACTION_HUD_BORDER: u32 = 5;
 const ACTION_HUD_WIDTH: u32 = 700;
 const ACTION_HUD_HEIGHT: u32 = 200;
@@ -842,7 +846,21 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             // damage
             if animation_timer == 0 {
                 if cur_player_attack_type == AttackType::NORMAL {
-                    do_damage(&mut enemy_boat, 1);
+                    if do_damage(&mut enemy_boat, 1) {
+
+                        // TODO: shipwreck
+                        // TODO: choose boat
+                        // TODO: repair boat
+                        // TODO: next battle
+                        // TODO: kill enemy
+
+                        player_boat.wood += enemy_boat.wood;
+                        player_boat.mineral += enemy_boat.mineral;
+
+                        if enemy_defeated_loop(&mut player_boat, &mut enemy_boat, &mut canvas, &textures, &font, &mut event_pump) {
+                            break 'running
+                        }
+                    }
                 }
                 if cur_enemy_attack_type == AttackType::NORMAL {
                     if do_damage(&mut player_boat, 1) {
@@ -887,5 +905,33 @@ fn game_over_loop(mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textur
         canvas.copy(texture, None, rect).unwrap();
 
         canvas.present()
+    }
+}
+
+fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, textures : &Vec<sdl2::render::Texture>, font : &sdl2::ttf::Font, event_pump : &mut sdl2::EventPump) -> bool {
+    let (w_width, w_height) = canvas.window().size();
+
+    let rect = rect!((w_width - BATTLE_RESULT_BG_WIDTH) / 2, (w_height - BATTLE_RESULT_BG_HEIGHT) / 2, BATTLE_RESULT_BG_WIDTH, BATTLE_RESULT_BG_HEIGHT);
+    canvas.set_blend_mode(BlendMode::Blend);
+    canvas.set_draw_color(BATTLE_RESULT_BG_COLOR);
+    canvas.fill_rect(rect).unwrap();
+    canvas.set_blend_mode(BlendMode::None);
+
+    canvas.present();
+
+    loop {
+        //Event handling
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} => {
+                    return true;
+                },
+
+                Event::KeyUp { keycode: Some(Keycode::Return), .. } | Event::KeyUp { keycode: Some(Keycode::Space), .. } => {
+                    return false;
+                },
+                _ => ()
+            }
+        }
     }
 }
