@@ -108,6 +108,8 @@ struct Object {
 
 struct Boat {
     health: isize,
+    max_health: isize,
+    shield: isize,
 
     wood: isize,
     mineral: isize,
@@ -192,6 +194,9 @@ fn main() {
         texture_creator.load_texture("assets/boat_small_NW.png").unwrap(),
         texture_creator.load_texture("assets/boat_small_SW.png").unwrap(),
         texture_creator.load_texture("assets/boat_small_SE.png").unwrap(),
+        texture_creator.load_texture("assets/steerwheel_dark.png").unwrap(),
+        texture_creator.load_texture("assets/steerwheel.png").unwrap(),
+        texture_creator.load_texture("assets/steerwheel_silver.png").unwrap(),
     );
 
     let map: [[usize; 30]; 30] = [
@@ -235,7 +240,7 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
-    let mut player_boat = Boat{health: 20, wood: 0, mineral: 0, obj: None};
+    let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -496,7 +501,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
     let texture_creator = canvas.texture_creator();
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
-    let mut enemy_boat = Boat {health: 20, wood: 15, mineral: 5,
+    let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5,
     obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
 
     player_boat.obj.as_mut().unwrap().x = BOAT_PLAYER_COMBAT_X;
@@ -636,10 +641,25 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
             // life bar
             for i in 0..player_boat.health {
-                let metal_texture = &textures[9];
-                let tex_info = metal_texture.query();
-                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, LIFE_BAR_Y, LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
-                canvas.copy(&metal_texture, None, rect).unwrap();
+                let red_health = &textures[15];
+                let tex_info = red_health.query();
+                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, LIFE_BAR_Y,
+                                  LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
+                canvas.copy(&red_health, None, rect).unwrap();
+            }
+            for i in player_boat.health..player_boat.max_health {
+                let health = &textures[14];
+                let tex_info = health.query();
+                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, LIFE_BAR_Y,
+                                  LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
+                canvas.copy(&health, None, rect).unwrap();
+            }
+            for i in player_boat.max_health..player_boat.max_health+player_boat.shield {
+                let shield = &textures[16];
+                let tex_info = shield.query();
+                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, LIFE_BAR_Y,
+                                  LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
+                canvas.copy(&shield, None, rect).unwrap();
             }
         }
 
