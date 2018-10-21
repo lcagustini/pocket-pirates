@@ -1,6 +1,9 @@
 extern crate sdl2;
+extern crate rand;
 
 use std::ops::{Add, Sub, Mul};
+
+use rand::prelude::*;
 
 use sdl2::event::Event;
 use sdl2::pixels::Color;
@@ -115,6 +118,9 @@ struct Boat {
     mineral: isize,
 
     obj: Option<Object>,
+
+    attacks: Vec<AttackType>,
+    parts: Vec<Target>
 }
 
 fn gather_resource(player_id : &mut usize, player_boat : &mut Boat, objects : &mut Vec<Object>, texture_id : usize) {
@@ -197,6 +203,7 @@ fn main() {
         texture_creator.load_texture("assets/steerwheel_dark.png").unwrap(),
         texture_creator.load_texture("assets/steerwheel.png").unwrap(),
         texture_creator.load_texture("assets/steerwheel_silver.png").unwrap(),
+        texture_creator.load_texture("assets/ball.png").unwrap(),
     );
 
     let map: [[usize; 30]; 30] = [
@@ -240,7 +247,8 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
-    let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None};
+    let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None, attacks: vec!(AttackType::NORMAL),
+                               parts: vec!(Target::HELM, Target::POLE, Target::CANNON1)};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -484,6 +492,20 @@ enum ButtonType {
     POLE
 }
 
+#[derive (Copy, Clone)]
+enum AttackType {
+    NORMAL
+}
+
+#[derive (Copy, Clone)]
+enum Target {
+    NONE,
+    CANNON1,
+    CANNON2,
+    HELM,
+    POLE
+}
+
 struct Button {
     text : String,
     enabled : bool,
@@ -497,12 +519,20 @@ enum Menu {
     TARGET
 }
 
+fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, cur_target : &mut Target) {
+    let rand : usize = random::<usize>() % enemy.attacks.len();
+    *cur_attack = enemy.attacks[rand];
+    let rand : usize = random::<usize>() % player.parts.len();
+    *cur_target = player.parts[rand];
+}
+
 fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
     let texture_creator = canvas.texture_creator();
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
-    let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5,
-    obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+    let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, attacks: vec!(AttackType::NORMAL),
+                               parts: vec!(Target::HELM, Target::POLE, Target::CANNON1),
+                               obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
 
     player_boat.obj.as_mut().unwrap().x = BOAT_PLAYER_COMBAT_X;
     player_boat.obj.as_mut().unwrap().y = BOAT_PLAYER_COMBAT_Y;
@@ -524,6 +554,14 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                typ: ButtonType::NONE}
         );
     let mut cur_menu = Menu::DEFAULT;
+
+    let mut cur_player_attack_type = AttackType::NORMAL;
+    let mut cur_player_target = Target::NONE;
+    let mut cur_enemy_attack_type = AttackType::NORMAL;
+    let mut cur_enemy_target = Target::NONE;
+
+    let mut animation_timer = 0;
+    let mut animation_start_timer = 0;
 
     'running: loop {
         let (w_width, w_height) = canvas.window().size();
@@ -557,9 +595,64 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                             cur_buttons[3].enabled = true;
                                             cur_buttons[3].typ = ButtonType::CANNON2;
                                             cur_buttons[3].text = "Canhão 2".to_owned();
+
+                                            cur_player_attack_type = AttackType::NORMAL;
                                         },
                                         ButtonType::ABILITY => {
                                             cur_menu = Menu::ABILITY;
+                                            // TODO
+                                        },
+                                        ButtonType::POLE => {
+                                            animation_timer = 20;
+                                            animation_start_timer = 20;
+                                            cur_player_target = Target::POLE;
+
+                                            cur_menu = Menu::DEFAULT;
+                                            cur_buttons[0].enabled = false;
+                                            cur_buttons[1].enabled = false;
+                                            cur_buttons[2].enabled = false;
+                                            cur_buttons[3].enabled = false;
+
+                                            do_enemy_attack(&player_boat, &enemy_boat, &mut cur_enemy_attack_type, &mut cur_enemy_target);
+                                        },
+                                        ButtonType::HELM => {
+                                            animation_timer = 20;
+                                            animation_start_timer = 20;
+                                            cur_player_target = Target::HELM;
+
+                                            cur_menu = Menu::DEFAULT;
+                                            cur_buttons[0].enabled = false;
+                                            cur_buttons[1].enabled = false;
+                                            cur_buttons[2].enabled = false;
+                                            cur_buttons[3].enabled = false;
+
+                                            do_enemy_attack(&player_boat, &enemy_boat, &mut cur_enemy_attack_type, &mut cur_enemy_target);
+                                        },
+                                        ButtonType::CANNON1 => {
+                                            animation_timer = 20;
+                                            animation_start_timer = 20;
+                                            cur_player_target = Target::CANNON1;
+
+                                            cur_menu = Menu::DEFAULT;
+                                            cur_buttons[0].enabled = false;
+                                            cur_buttons[1].enabled = false;
+                                            cur_buttons[2].enabled = false;
+                                            cur_buttons[3].enabled = false;
+
+                                            do_enemy_attack(&player_boat, &enemy_boat, &mut cur_enemy_attack_type, &mut cur_enemy_target);
+                                        },
+                                        ButtonType::CANNON2 => {
+                                            animation_timer = 20;
+                                            animation_start_timer = 20;
+                                            cur_player_target = Target::CANNON2;
+
+                                            cur_menu = Menu::DEFAULT;
+                                            cur_buttons[0].enabled = false;
+                                            cur_buttons[1].enabled = false;
+                                            cur_buttons[2].enabled = false;
+                                            cur_buttons[3].enabled = false;
+
+                                            do_enemy_attack(&player_boat, &enemy_boat, &mut cur_enemy_attack_type, &mut cur_enemy_target);
                                         },
                                         _ => ()
                                     }
@@ -695,6 +788,34 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             canvas.copy(&wood_texture, None, rect).unwrap();
         }
 
+        if animation_timer > 0 {
+            animation_timer -= 1;
+
+            let ball_texture = &textures[17];
+            let tex_info = ball_texture.query();
+
+            let obj = player_boat.obj.unwrap();
+            let player_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+            let player_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+            let obj = enemy_boat.obj.unwrap();
+            let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+            let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+            // TODO: account for different types of attack
+
+            let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
+                             (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 50,
+                             tex_info.width, tex_info.height);
+            canvas.copy(&ball_texture, None, rect).unwrap();
+
+            let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
+                             (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 50,
+                             tex_info.width, tex_info.height);
+            canvas.copy(&ball_texture, None, rect).unwrap();
+        }
+
         canvas.present()
     }
 }
+

@@ -84,6 +84,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "pocket-pirates"
 version = "0.1.0"
 dependencies = [
+ "rand 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.32.0-beta.2 (git+https://github.com/AngryLawyer/rust-sdl2)",
 ]
 
