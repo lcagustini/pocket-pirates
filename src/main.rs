@@ -238,7 +238,8 @@ fn main() {
         texture_creator.load_texture("assets/ship_dark_NW.png").unwrap(), // 22
         texture_creator.load_texture("assets/ship_dark_SE.png").unwrap(),
         texture_creator.load_texture("assets/ship_dark_SE.png").unwrap(), // 24
-        texture_creator.load_texture("assets/instructions.png").unwrap()
+        texture_creator.load_texture("assets/instructions.png").unwrap(),
+        texture_creator.load_texture("assets/finalmente.png").unwrap()
     );
 
     let map: [[usize; 30]; 30] = [
@@ -314,6 +315,12 @@ fn main() {
                     gather_resource(&mut player_id, &mut player_boat, &mut objects, tid);
 
                     if (objects[player_id].x - BOAT_X).abs() <= 1 && (objects[player_id].y - BOAT_Y).abs() <= 1 && player_boat.obj.is_some() {
+                        canvas.clear();
+                        let rect = rect!(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+                        canvas.copy(&textures[26], None, rect).unwrap();
+                        canvas.present();
+                        std::thread::sleep(std::time::Duration::from_millis(3000));
+
                         start_combat_phase(player_boat, canvas, textures, font, event_pump, &ttf_context);
                         break 'running
                     }
