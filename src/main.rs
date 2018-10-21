@@ -48,6 +48,10 @@ const BOAT_ENEMY_COMBAT_Y: isize = 4;
 const CAMERA_X: isize = 500;
 const CAMERA_Y: isize = -400;
 
+const LIFE_BAR_X: isize = 5;
+const LIFE_BAR_Y: isize = 5;
+const LIFE_BAR_ICON_SCALE: f32 = 0.3;
+
 #[derive(Debug, Copy, Clone)]
 struct Vector {
     x: f32,
@@ -628,6 +632,14 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                     let rect = rect!(middle_x - font_t_info.width as i32 / 2, middle_y - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
+            }
+
+            // life bar
+            for i in 0..player_boat.health {
+                let metal_texture = &textures[9];
+                let tex_info = metal_texture.query();
+                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, LIFE_BAR_Y, LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
+                canvas.copy(&metal_texture, None, rect).unwrap();
             }
         }
 
