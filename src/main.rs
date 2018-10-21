@@ -204,6 +204,7 @@ fn main() {
         texture_creator.load_texture("assets/steerwheel.png").unwrap(),
         texture_creator.load_texture("assets/steerwheel_silver.png").unwrap(),
         texture_creator.load_texture("assets/ball.png").unwrap(),
+        texture_creator.load_texture("assets/gameover.png").unwrap(),
     );
 
     let map: [[usize; 30]; 30] = [
@@ -492,7 +493,7 @@ enum ButtonType {
     POLE
 }
 
-#[derive (Copy, Clone)]
+#[derive (Copy, Clone, Eq, PartialEq)]
 enum AttackType {
     NORMAL
 }
@@ -517,6 +518,30 @@ enum Menu {
     DEFAULT,
     ABILITY,
     TARGET
+}
+
+// returns true if boat died
+fn do_damage(boat : &mut Boat, damage: isize) -> bool {
+    let mut damage = damage;
+
+    // shield
+    if boat.shield > 0 {
+        boat.shield -= damage;
+        if boat.shield < 0 {
+            damage = boat.shield.abs();
+            boat.shield = 0;
+        } else {
+            damage = 0;
+        }
+    }
+
+    boat.health -= damage;
+
+    if boat.health <= 0 {
+        return true;
+    }
+
+    return false;
 }
 
 fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, cur_target : &mut Target) {
@@ -813,9 +838,54 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                              (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 50,
                              tex_info.width, tex_info.height);
             canvas.copy(&ball_texture, None, rect).unwrap();
+
+            // damage
+            if animation_timer == 0 {
+                if cur_player_attack_type == AttackType::NORMAL {
+                    do_damage(&mut enemy_boat, 1);
+                }
+                if cur_enemy_attack_type == AttackType::NORMAL {
+                    if do_damage(&mut player_boat, 1) {
+                        game_over_loop(canvas, textures, event_pump);
+                        break 'running
+                    }
+                }
+
+                // revive menu
+                cur_buttons[0].enabled = true;
+                cur_buttons[0].text = "Ataque".to_owned();
+                cur_buttons[0].typ = ButtonType::ATTACK;
+                cur_buttons[1].enabled = true;
+                cur_buttons[1].text = "Habilidade".to_owned();
+                cur_buttons[1].typ = ButtonType::ABILITY;
+                cur_buttons[2].enabled = false;
+                cur_buttons[3].enabled = false;
+            }
         }
 
         canvas.present()
     }
 }
 
+fn game_over_loop(mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, mut event_pump : sdl2::EventPump) {
+    'running: loop {
+        let (w_width, w_height) = canvas.window().size();
+
+        //Event handling
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} => {
+                    break 'running
+                },
+                _ => ()
+            }
+        }
+
+        let texture = &textures[18];
+        let texture_info = texture.query();
+        let rect = rect!((w_width - texture_info.width / 2) / 2, (w_height - texture_info.height / 2) / 2, texture_info.width / 2, texture_info.height / 2);
+        canvas.copy(texture, None, rect).unwrap();
+
+        canvas.present()
+    }
+}
