@@ -52,6 +52,8 @@ const BOAT_X: isize = 8;
 const BOAT_Y: isize = 12;
 const BOAT_OFFSET_X: isize = 0;
 const BOAT_OFFSET_Y: isize = 30;
+const LARGE_BOAT_OFFSET_X: isize = -200;
+const LARGE_BOAT_OFFSET_Y: isize = -200;
 const BOAT_COST: isize = 10;
 
 const BOAT_PLAYER_COMBAT_X: isize = 9;
@@ -236,6 +238,7 @@ fn main() {
         texture_creator.load_texture("assets/ship_dark_NW.png").unwrap(), // 22
         texture_creator.load_texture("assets/ship_dark_SE.png").unwrap(),
         texture_creator.load_texture("assets/ship_dark_SE.png").unwrap(), // 24
+        texture_creator.load_texture("assets/instructions.png").unwrap()
     );
 
     let map: [[usize; 30]; 30] = [
@@ -279,13 +282,19 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
-    let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None, can_attack: 0,
+    let mut player_boat = Boat{health: 7, max_health: 9, shield: 2, wood: 0, mineral: 0, obj: None, can_attack: 0,
                                attacks: [AttackType::NORMAL, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                enabled_attacks: [AttackType::NORMAL, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect()};
 
     let mut event_pump = sdl_context.event_pump().unwrap();
+
+    canvas.clear();
+    let rect = rect!(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    canvas.copy(&textures[25], None, rect).unwrap();
+    canvas.present();
+    std::thread::sleep(std::time::Duration::from_millis(10000));
 
     'running: loop {
         //Event handling
@@ -398,6 +407,7 @@ fn main() {
         //Drawing
         canvas.set_draw_color(BG_COLOR);
         canvas.clear();
+
         let (w_width, w_height) = canvas.window().size();
         {
 
@@ -636,10 +646,10 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
     let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, can_attack: 0,
-                               attacks: [AttackType::NORMAL, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
-                               enabled_attacks: [AttackType::NORMAL, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
-                               parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
-                               enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                               attacks: [AttackType::NORMAL].iter().cloned().collect(),
+                               enabled_attacks: [AttackType::NORMAL].iter().cloned().collect(),
+                               parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                               enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
 
     player_boat.obj.as_mut().unwrap().x = BOAT_PLAYER_COMBAT_X;
@@ -1560,6 +1570,8 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                     player_boat.shield = 0;
                                     player_boat.max_health = enemy_boat.max_health;
                                     player_boat.obj.as_mut().unwrap().texture_id = enemy_boat.obj.unwrap().texture_id + 2;
+                                    player_boat.obj.as_mut().unwrap().offset_x = enemy_boat.obj.unwrap().offset_x;
+                                    player_boat.obj.as_mut().unwrap().offset_y = enemy_boat.obj.unwrap().offset_y;
                                     player_boat.attacks = enemy_boat.attacks.clone();
                                     player_boat.parts = enemy_boat.parts.clone();
                                     option += 1;
@@ -1603,7 +1615,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                                            parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                            enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                            obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                                                    offset_x: LARGE_BOAT_OFFSET_X, offset_y: LARGE_BOAT_OFFSET_Y})};
                                     } else {
                                         *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
                                                            attacks: [AttackType::NORMAL].iter().cloned().collect(),
@@ -1611,7 +1623,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                                            parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                                            enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                                            obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                                                    offset_x: LARGE_BOAT_OFFSET_X, offset_y: LARGE_BOAT_OFFSET_Y})};
                                     }
                                 } else if pa == 1 {
                                     if c == 1 {
@@ -1621,7 +1633,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                                            parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                            enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                            obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                                                    offset_x: LARGE_BOAT_OFFSET_X, offset_y: LARGE_BOAT_OFFSET_Y})};
                                     } else {
                                         *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
                                                            attacks: [AttackType::NORMAL, p_atks[1]].iter().cloned().collect(),
@@ -1629,7 +1641,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                                            parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                                            enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                                            obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                                                    offset_x: LARGE_BOAT_OFFSET_X, offset_y: LARGE_BOAT_OFFSET_Y})};
                                     }
                                 } else if pa == 2 {
                                     if c == 1 {
@@ -1639,7 +1651,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                                            parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                            enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                            obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                                                    offset_x: LARGE_BOAT_OFFSET_X, offset_y: LARGE_BOAT_OFFSET_Y})};
                                     } else {
                                         *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
                                                            attacks: [AttackType::NORMAL, p_atks[2]].iter().cloned().collect(),
@@ -1647,7 +1659,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                                            parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                                            enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                                            obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                                                    offset_x: LARGE_BOAT_OFFSET_X, offset_y: LARGE_BOAT_OFFSET_Y})};
                                     }
                                 }
                                 return false;
