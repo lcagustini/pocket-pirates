@@ -64,6 +64,8 @@ const LIFE_BAR_X: isize = 5;
 const LIFE_BAR_Y: isize = 5;
 const LIFE_BAR_ICON_SCALE: f32 = 0.3;
 
+const HARPOON_DAMAGE: isize = 7;
+
 #[derive(Debug, Copy, Clone)]
 struct Vector {
     x: f32,
@@ -128,9 +130,8 @@ struct Boat {
 
     obj: Option<Object>,
 
-    attacks: Vec<AttackType>,
+    attacks: HashSet<AttackType>,
     parts: HashSet<Target>,
-
     enabled_parts: HashSet<Target>,
 }
 
@@ -259,7 +260,8 @@ fn main() {
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
 
-    let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None, attacks: vec!(AttackType::NORMAL),
+    let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None,
+                               attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect()};
 
@@ -498,16 +500,21 @@ fn bubble_sort(obj: &mut Vec<Object>, player_id: &mut usize) {
 enum ButtonType {
     NONE,
     ATTACK,
-    ABILITY,
+    HARPOON,
+    NET,
+    ANCHOR,
     CANNON1,
     CANNON2,
     HELM,
     POLE
 }
 
-#[derive (Copy, Clone, Eq, PartialEq)]
+#[derive (Copy, Clone, Eq, PartialEq, Hash, Debug)]
 enum AttackType {
-    NORMAL
+    NORMAL,
+    NET,
+    HARPOON,
+    ANCHOR
 }
 
 #[derive (Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -558,7 +565,13 @@ fn do_damage(boat : &mut Boat, damage: isize) -> bool {
 
 fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, cur_target : &mut Target) {
     let rand : usize = random::<usize>() % enemy.attacks.len();
-    *cur_attack = enemy.attacks[rand];
+    let mut iter = enemy.attacks.iter();
+    let mut attack: AttackType = AttackType::NORMAL;
+    for _ in 0..rand {
+        attack = *iter.next().unwrap();
+    }
+    *cur_attack = attack;
+
     let rand : usize = random::<usize>() % player.parts.len();
     let mut iter = player.parts.iter();
     let mut target: Target = Target::POLE;
@@ -568,11 +581,32 @@ fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, 
     *cur_target = target;
 }
 
+fn update_menu_with_abilities(player_boat : &mut Boat, cur_buttons : &mut Vec<Button>) {
+    let mut i = 1;
+    for atk in &player_boat.attacks {
+        if *atk == AttackType::NORMAL {
+            continue;
+        }
+
+        match atk {
+            AttackType::HARPOON => {
+                cur_buttons[i].enabled = true;
+                cur_buttons[i].typ = ButtonType::HARPOON;
+                cur_buttons[i].text = "Arpão".to_owned();
+                i += 1;
+                continue;
+            },
+            _ => ()
+        }
+    }
+}
+
 fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump, ttf_context : &sdl2::ttf::Sdl2TtfContext) {
     let texture_creator = canvas.texture_creator();
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
-    let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, attacks: vec!(AttackType::NORMAL),
+    let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5,
+                               attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
@@ -583,11 +617,11 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
     let (w_width, w_height) = canvas.window().size();
     let mut cur_buttons = vec!(
-        Button{text: "Ataque".to_owned(), enabled: true, rect: rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
+        Button{text: "Atirar".to_owned(), enabled: true, rect: rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
                typ: ButtonType::ATTACK},
-        Button{text: "Habilidade".to_owned(), enabled: true, rect: rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH,
+        Button{text: "".to_owned(), enabled: false, rect: rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH,
                                                                          ACTION_HUD_BUTTON_HEIGHT),
-               typ: ButtonType::ABILITY},
+               typ: ButtonType::NONE},
         Button{text: "".to_owned(), enabled: false, rect: rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT,
                                                                 ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
                typ: ButtonType::NONE},
@@ -596,7 +630,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                                                 ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
                typ: ButtonType::NONE}
         );
-    let mut cur_menu = Menu::DEFAULT;
+    update_menu_with_abilities(&mut player_boat, &mut cur_buttons);
 
     let mut cur_player_attack_type = AttackType::NORMAL;
     let mut cur_player_target = Target::NONE;
@@ -626,7 +660,6 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                 if cur_buttons[i].enabled && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h {
                                     match cur_buttons[i].typ {
                                         ButtonType::ATTACK => {
-                                            cur_menu = Menu::TARGET;
                                             // TODO: depending on the enemy, the number of cannons may vary
                                             cur_buttons[0].enabled = enemy_boat.parts.contains(&Target::POLE);
                                             cur_buttons[0].typ = ButtonType::POLE;
@@ -643,8 +676,24 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                                             cur_player_attack_type = AttackType::NORMAL;
                                         },
-                                        ButtonType::ABILITY => {
-                                            cur_menu = Menu::ABILITY;
+                                        ButtonType::HARPOON => {
+                                            cur_player_attack_type = AttackType::HARPOON;
+
+                                            animation_timer = 20;
+                                            animation_start_timer = 20;
+                                            cur_player_target = Target::NONE;
+
+                                            cur_buttons[0].enabled = false;
+                                            cur_buttons[1].enabled = false;
+                                            cur_buttons[2].enabled = false;
+                                            cur_buttons[3].enabled = false;
+
+                                            do_enemy_attack(&player_boat, &enemy_boat, &mut cur_enemy_attack_type, &mut cur_enemy_target);
+                                        },
+                                        ButtonType::NET => {
+                                            // TODO
+                                        },
+                                        ButtonType::ANCHOR => {
                                             // TODO
                                         },
                                         ButtonType::POLE => {
@@ -652,7 +701,6 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                             animation_start_timer = 20;
                                             cur_player_target = Target::POLE;
 
-                                            cur_menu = Menu::DEFAULT;
                                             cur_buttons[0].enabled = false;
                                             cur_buttons[1].enabled = false;
                                             cur_buttons[2].enabled = false;
@@ -665,7 +713,6 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                             animation_start_timer = 20;
                                             cur_player_target = Target::HELM;
 
-                                            cur_menu = Menu::DEFAULT;
                                             cur_buttons[0].enabled = false;
                                             cur_buttons[1].enabled = false;
                                             cur_buttons[2].enabled = false;
@@ -678,7 +725,6 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                             animation_start_timer = 20;
                                             cur_player_target = Target::CANNON1;
 
-                                            cur_menu = Menu::DEFAULT;
                                             cur_buttons[0].enabled = false;
                                             cur_buttons[1].enabled = false;
                                             cur_buttons[2].enabled = false;
@@ -691,7 +737,6 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                             animation_start_timer = 20;
                                             cur_player_target = Target::CANNON2;
 
-                                            cur_menu = Menu::DEFAULT;
                                             cur_buttons[0].enabled = false;
                                             cur_buttons[1].enabled = false;
                                             cur_buttons[2].enabled = false;
@@ -991,7 +1036,10 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             animation_timer -= 1;
 
             let ball_texture = &textures[17];
-            let tex_info = ball_texture.query();
+            let ball_tex_info = ball_texture.query();
+
+            let harpoon_texture = &textures[18];
+            let harpoon_tex_info = ball_texture.query();
 
             let obj = player_boat.obj.unwrap();
             let player_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
@@ -1003,203 +1051,286 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
             // TODO: account for different types of attack
 
-            let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
-                             (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 50,
-                             tex_info.width, tex_info.height);
-            canvas.copy(&ball_texture, None, rect).unwrap();
+            // player attack
+            {
+                match cur_player_attack_type {
+                    AttackType::HARPOON => {
+                        let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
+                                         (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 50,
+                        harpoon_tex_info.width, harpoon_tex_info.height);
+                        canvas.copy(&harpoon_texture, None, rect).unwrap();
+                    },
 
-            if player_boat.parts.contains(&Target::CANNON2) {
-                let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
-                                 (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 70,
-                                 tex_info.width, tex_info.height);
-                canvas.copy(&ball_texture, None, rect).unwrap();
+                    AttackType::NORMAL => {
+                        let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
+                        (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 50,
+                        ball_tex_info.width, ball_tex_info.height);
+                        canvas.copy(&ball_texture, None, rect).unwrap();
+
+                        if player_boat.parts.contains(&Target::CANNON2) {
+                            let rect = rect!((enemy_x - player_x) * (animation_start_timer - animation_timer) / animation_start_timer + player_x + 50,
+                            (enemy_y - player_y) * (animation_start_timer - animation_timer) / animation_start_timer + player_y + 70,
+                            ball_tex_info.width, ball_tex_info.height);
+                            canvas.copy(&ball_texture, None, rect).unwrap();
+                        }
+                    },
+
+                    _ => ()
+                }
             }
 
-            let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
-                             (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 50,
-                             tex_info.width, tex_info.height);
-            canvas.copy(&ball_texture, None, rect).unwrap();
+            // enemy attack
+            {
+                match cur_enemy_attack_type {
+                    AttackType::HARPOON => {
+                        let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
+                                         (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 50,
+                        harpoon_tex_info.width, harpoon_tex_info.height);
+                        canvas.copy(&harpoon_texture, None, rect).unwrap();
+                    },
+                    AttackType::NORMAL => {
+                        let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
+                        (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 50,
+                        ball_tex_info.width, ball_tex_info.height);
+                        canvas.copy(&ball_texture, None, rect).unwrap();
 
-            if enemy_boat.parts.contains(&Target::CANNON2) {
-                let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
-                                 (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 30,
-                                 tex_info.width, tex_info.height);
-                canvas.copy(&ball_texture, None, rect).unwrap();
+                        if enemy_boat.parts.contains(&Target::CANNON2) {
+                            let rect = rect!((player_x - enemy_x) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_x + 50,
+                            (player_y - enemy_y) * (animation_start_timer - animation_timer) / animation_start_timer + enemy_y + 30,
+                            ball_tex_info.width, ball_tex_info.height);
+                            canvas.copy(&ball_texture, None, rect).unwrap();
+                        }
+                    },
+                    _ => ()
+                }
             }
 
             // damage
             if animation_timer == 0 {
-                if cur_player_attack_type == AttackType::NORMAL {
-                    let mut damage = 0;
-                    if player_boat.enabled_parts.contains(&Target::CANNON1) {
-                        damage += 2;
-                    }
-                    else if player_boat.parts.contains(&Target::CANNON1) {
-                        damage += 1;
-                    }
 
-                    if player_boat.enabled_parts.contains(&Target::CANNON2) {
-                        damage += 2;
-                    }
-                    else if player_boat.parts.contains(&Target::CANNON2) {
-                        damage += 1;
-                    }
-
-                    let miss =
-                        if enemy_boat.enabled_parts.contains(&Target::HELM) {
-                            MISS_CHANCE
+                match cur_player_attack_type {
+                    AttackType::NORMAL => {
+                        let mut damage = 0;
+                        if player_boat.enabled_parts.contains(&Target::CANNON1) {
+                            damage += 2;
                         }
-                        else {
-                            0
-                        };
-
-                    let rand = random::<u8>();
-                    if rand >= miss {
-                        match cur_player_target {
-                            Target::POLE => {
-                                if enemy_boat.enabled_parts.contains(&Target::POLE) {
-                                    enemy_boat.enabled_parts.remove(&Target::POLE);
-                                }
-                                damage = (damage as f32 * 1.5) as isize;
-                            },
-                            Target::HELM => {
-                                if enemy_boat.enabled_parts.contains(&Target::HELM) {
-                                    enemy_boat.enabled_parts.remove(&Target::HELM);
-                                }
-                            },
-                            Target::CANNON1 => {
-                                if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
-                                    enemy_boat.enabled_parts.remove(&Target::CANNON1);
-                                }
-                            },
-                            Target::CANNON2 => {
-                                if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
-                                    enemy_boat.enabled_parts.remove(&Target::CANNON2);
-                                }
-                            },
-                            _ => ()
+                        else if player_boat.parts.contains(&Target::CANNON1) {
+                            damage += 1;
                         }
 
-                        if do_damage(&mut enemy_boat, damage) {
-
-                            // TODO: shipwreck
-                            // TODO: choose boat
-                            // TODO: repair boat
-                            // TODO: next battle
-                            // TODO: kill enemy
-
-                            player_boat.wood += enemy_boat.wood;
-                            player_boat.mineral += enemy_boat.mineral;
-
-                            enemy_defeated = 3;
+                        if player_boat.enabled_parts.contains(&Target::CANNON2) {
+                            damage += 2;
                         }
-                    }
-                    else {
-                        let obj = player_boat.obj.unwrap();
-                        let player_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
-                        let player_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+                        else if player_boat.parts.contains(&Target::CANNON2) {
+                            damage += 1;
+                        }
 
-                        let obj = enemy_boat.obj.unwrap();
-                        let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
-                        let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+                        let miss =
+                            if enemy_boat.enabled_parts.contains(&Target::HELM) {
+                                MISS_CHANCE
+                            }
+                            else {
+                                0
+                            };
 
-                        let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
-                        let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
-                        let font_t_info = font_t.query();
-                        let rect = rect!(player_x + 10,
-                                         player_y + 100,
-                                         font_t_info.width, font_t_info.height);
-                        canvas.copy(&font_t, None, rect).unwrap();
-                        canvas.present();
-                        std::thread::sleep(std::time::Duration::from_millis(200));
-                    }
+                        let rand = random::<u8>();
+                        if rand >= miss {
+                            match cur_player_target {
+                                Target::POLE => {
+                                    if enemy_boat.enabled_parts.contains(&Target::POLE) {
+                                        enemy_boat.enabled_parts.remove(&Target::POLE);
+                                    }
+                                    damage = (damage as f32 * 1.5) as isize;
+                                },
+                                Target::HELM => {
+                                    if enemy_boat.enabled_parts.contains(&Target::HELM) {
+                                        enemy_boat.enabled_parts.remove(&Target::HELM);
+                                    }
+                                },
+                                Target::CANNON1 => {
+                                    if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
+                                        enemy_boat.enabled_parts.remove(&Target::CANNON1);
+                                    }
+                                },
+                                Target::CANNON2 => {
+                                    if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
+                                        enemy_boat.enabled_parts.remove(&Target::CANNON2);
+                                    }
+                                },
+                                _ => ()
+                            }
+
+                            if do_damage(&mut enemy_boat, damage) {
+                                // TODO: shipwreck
+                                player_boat.wood += enemy_boat.wood;
+                                player_boat.mineral += enemy_boat.mineral;
+
+                                enemy_defeated = 3;
+                            }
+                        } else {
+                            let obj = enemy_boat.obj.unwrap();
+                            let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                            let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                            let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                            let font_t_info = font_t.query();
+                            let rect = rect!(enemy_x + 10, enemy_y + 100, font_t_info.width, font_t_info.height);
+                            canvas.copy(&font_t, None, rect).unwrap();
+                            canvas.present();
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                        }
+                    },
+                    AttackType::HARPOON => {
+                        let damage = HARPOON_DAMAGE;
+
+                        let miss =
+                            if enemy_boat.enabled_parts.contains(&Target::HELM) {
+                                MISS_CHANCE
+                            }
+                            else {
+                                0
+                            };
+
+                        let rand = random::<u8>();
+                        if rand >= miss {
+                            if do_damage(&mut enemy_boat, damage) {
+                                // TODO: shipwreck
+                                player_boat.wood += enemy_boat.wood;
+                                player_boat.mineral += enemy_boat.mineral;
+
+                                enemy_defeated = 3;
+                            }
+                        } else {
+                            let obj = enemy_boat.obj.unwrap();
+                            let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                            let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                            let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                            let font_t_info = font_t.query();
+                            let rect = rect!(enemy_x + 10, enemy_y + 100, font_t_info.width, font_t_info.height);
+                            canvas.copy(&font_t, None, rect).unwrap();
+                            canvas.present();
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                        }
+                    },
+                    _ => ()
                 }
-                if cur_enemy_attack_type == AttackType::NORMAL {
-                    let mut damage = 0;
-                    if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
-                        damage += 2;
-                    }
-                    else if enemy_boat.parts.contains(&Target::CANNON1) {
-                        damage += 1;
-                    }
 
-                    if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
-                        damage += 2;
-                    }
-                    else if enemy_boat.parts.contains(&Target::CANNON2) {
-                        damage += 1;
-                    }
-
-                    let miss =
-                        if player_boat.enabled_parts.contains(&Target::HELM) {
-                            MISS_CHANCE
+                match cur_enemy_attack_type {
+                    AttackType::NORMAL => {
+                        let mut damage = 0;
+                        if enemy_boat.enabled_parts.contains(&Target::CANNON1) {
+                            damage += 2;
                         }
-                        else {
-                            0
-                        };
-
-                    let rand = random::<u8>();
-                    if rand >= miss {
-                        match cur_enemy_target {
-                            Target::POLE => {
-                                if player_boat.enabled_parts.contains(&Target::POLE) {
-                                    player_boat.enabled_parts.remove(&Target::POLE);
-                                }
-                                damage = (damage as f32 * 1.5) as isize;
-                            },
-                            Target::HELM => {
-                                if player_boat.enabled_parts.contains(&Target::HELM) {
-                                    player_boat.enabled_parts.remove(&Target::HELM);
-                                }
-                            },
-                            Target::CANNON1 => {
-                                if player_boat.enabled_parts.contains(&Target::CANNON1) {
-                                    player_boat.enabled_parts.remove(&Target::CANNON1);
-                                }
-                            },
-                            Target::CANNON2 => {
-                                if player_boat.enabled_parts.contains(&Target::CANNON2) {
-                                    player_boat.enabled_parts.remove(&Target::CANNON2);
-                                }
-                            },
-                            _ => ()
+                        else if enemy_boat.parts.contains(&Target::CANNON1) {
+                            damage += 1;
                         }
 
-                        if do_damage(&mut player_boat, damage) {
-                            game_over_loop(canvas, textures, event_pump);
-                            break 'running
+                        if enemy_boat.enabled_parts.contains(&Target::CANNON2) {
+                            damage += 2;
+                        }
+                        else if enemy_boat.parts.contains(&Target::CANNON2) {
+                            damage += 1;
+                        }
+
+                        let miss =
+                            if player_boat.enabled_parts.contains(&Target::HELM) {
+                                MISS_CHANCE
+                            }
+                            else {
+                                0
+                            };
+
+                        let rand = random::<u8>();
+                        if rand >= miss {
+                            match cur_enemy_target {
+                                Target::POLE => {
+                                    if player_boat.enabled_parts.contains(&Target::POLE) {
+                                        player_boat.enabled_parts.remove(&Target::POLE);
+                                    }
+                                    damage = (damage as f32 * 1.5) as isize;
+                                },
+                                Target::HELM => {
+                                    if player_boat.enabled_parts.contains(&Target::HELM) {
+                                        player_boat.enabled_parts.remove(&Target::HELM);
+                                    }
+                                },
+                                Target::CANNON1 => {
+                                    if player_boat.enabled_parts.contains(&Target::CANNON1) {
+                                        player_boat.enabled_parts.remove(&Target::CANNON1);
+                                    }
+                                },
+                                Target::CANNON2 => {
+                                    if player_boat.enabled_parts.contains(&Target::CANNON2) {
+                                        player_boat.enabled_parts.remove(&Target::CANNON2);
+                                    }
+                                },
+                                _ => ()
+                            }
+
+                            if do_damage(&mut player_boat, damage) {
+                                game_over_loop(canvas, textures, event_pump);
+                                break 'running
+                            }
+                        } else {
+                            let obj = player_boat.obj.unwrap();
+                            let x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                            let y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                            let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                            let font_t_info = font_t.query();
+                            let rect = rect!(x + 10, y + 100, font_t_info.width, font_t_info.height);
+                            canvas.copy(&font_t, None, rect).unwrap();
+                            canvas.present();
+                            std::thread::sleep(std::time::Duration::from_millis(200));
+                        }
+                    },
+                    AttackType::HARPOON => {
+                        let mut damage = HARPOON_DAMAGE;
+
+                        let miss =
+                            if player_boat.enabled_parts.contains(&Target::HELM) {
+                                MISS_CHANCE
+                            }
+                            else {
+                                0
+                            };
+
+                        let rand = random::<u8>();
+                        if rand >= miss {
+                            if do_damage(&mut player_boat, damage) {
+                                game_over_loop(canvas, textures, event_pump);
+                                break 'running
+                            }
+                        } else {
+                            let obj = player_boat.obj.unwrap();
+                            let x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
+                            let y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
+
+                            let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                            let font_t_info = font_t.query();
+                            let rect = rect!(x + 10, y + 100, font_t_info.width, font_t_info.height);
+                            canvas.copy(&font_t, None, rect).unwrap();
+                            canvas.present();
+                            std::thread::sleep(std::time::Duration::from_millis(200));
                         }
                     }
-                    else {
-                        let obj = player_boat.obj.unwrap();
-                        let player_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
-                        let player_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
 
-                        let obj = enemy_boat.obj.unwrap();
-                        let enemy_x = CAMERA_X as isize + obj.x * HALF_TILE_WIDTH - obj.y * HALF_TILE_WIDTH + obj.offset_x;
-                        let enemy_y = CAMERA_Y as isize + obj.x * HALF_TILE_HEIGHT + obj.y * HALF_TILE_HEIGHT + obj.offset_y;
-
-                        let font_s = font.render("ERROU").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
-                        let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
-                        let font_t_info = font_t.query();
-                        let rect = rect!(enemy_x + 10,
-                                         enemy_y + 100,
-                                         font_t_info.width, font_t_info.height);
-                        canvas.copy(&font_t, None, rect).unwrap();
-                        canvas.present();
-                        std::thread::sleep(std::time::Duration::from_millis(200));
-                    }
+                    _ => ()
                 }
 
                 // revive menu
                 cur_buttons[0].enabled = true;
-                cur_buttons[0].text = "Ataque".to_owned();
+                cur_buttons[0].text = "Atirar".to_owned();
                 cur_buttons[0].typ = ButtonType::ATTACK;
-                cur_buttons[1].enabled = true;
-                cur_buttons[1].text = "Habilidade".to_owned();
-                cur_buttons[1].typ = ButtonType::ABILITY;
+                cur_buttons[1].enabled = false;
                 cur_buttons[2].enabled = false;
                 cur_buttons[3].enabled = false;
+                update_menu_with_abilities(&mut player_boat, &mut cur_buttons);
             }
         }
 
@@ -1308,10 +1439,11 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                             if option == 2 { // next battle
                                 player_boat.enabled_parts = player_boat.parts.clone();
 
-                                *enemy_boat = Boat{health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, attacks: vec!(AttackType::NORMAL),
-                                                  parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
-                                                  enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
-                                                  obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                *enemy_boat = Boat{health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5,
+                                                   attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
+                                                   parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                   enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                   obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
                                                             offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
                                 return false;
                             }
