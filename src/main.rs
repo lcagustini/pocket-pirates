@@ -1,5 +1,6 @@
 extern crate sdl2;
 extern crate rand;
+extern crate ears;
 
 use std::ops::{Add, Sub, Mul};
 use std::collections::HashSet;
@@ -12,6 +13,7 @@ use sdl2::keyboard::Scancode;
 use sdl2::keyboard::Keycode;
 use sdl2::image::LoadTexture;
 use sdl2::render::BlendMode;
+use ears::{Sound, AudioController};
 
 macro_rules! rect(($x:expr, $y:expr, $w:expr, $h:expr) =>
                   (sdl2::rect::Rect::new($x as i32, $y as i32, $w as u32, $h as u32)));
@@ -191,6 +193,14 @@ fn main() {
         .resizable()
         .build()
         .unwrap();
+
+
+    // Create a new Sound.
+    let mut snd = Sound::new("assets/music.ogg").unwrap();
+
+    // Play the Sound
+    snd.set_looping(true);
+    snd.play();
 
     let mut font = ttf_context.load_font("roboto.ttf", FONT_SIZE).unwrap();
     font.set_style(sdl2::ttf::STYLE_NORMAL);
