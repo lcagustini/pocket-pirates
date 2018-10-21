@@ -23,8 +23,10 @@ const UI_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 110};
 const UI_BUTTON_COLOR: Color = Color{r: 255, g: 150, b: 150, a: 110};
 
 const BATTLE_RESULT_BG_WIDTH: u32 = (WINDOW_WIDTH as f32 * 0.8) as u32;
-const BATTLE_RESULT_BG_HEIGHT: u32 = (WINDOW_HEIGHT as f32 * 0.8) as u32;
+const BATTLE_RESULT_BG_HEIGHT: u32 = (WINDOW_HEIGHT as f32 * 0.2) as u32;
 const BATTLE_RESULT_BG_COLOR: Color = Color{r: 0, g: 0, b: 0, a: 200};
+const BATTLE_RESULT_BUTTON_WIDTH: u32 = 505;
+const BATTLE_RESULT_BUTTON_HEIGHT: u32 = 95;
 
 const ACTION_HUD_BORDER: u32 = 5;
 const ACTION_HUD_WIDTH: u32 = 700;
@@ -110,7 +112,7 @@ struct Object {
     y: isize,
 
     offset_x: isize,
-    offset_y: isize,
+    offset_y: isize
 }
 
 struct Boat {
@@ -270,7 +272,7 @@ fn main() {
                     gather_resource(&mut player_id, &mut player_boat, &mut objects, tid);
 
                     if (objects[player_id].x - BOAT_X).abs() <= 1 && (objects[player_id].y - BOAT_Y).abs() <= 1 && player_boat.obj.is_some() {
-                        start_combat_phase(player_boat, canvas, textures, font, event_pump);
+                        start_combat_phase(player_boat, canvas, textures, font, event_pump, &ttf_context);
                         break 'running
                     }
                 },
@@ -555,7 +557,7 @@ fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, 
     *cur_target = player.parts[rand];
 }
 
-fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
+fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump, ttf_context : &sdl2::ttf::Sdl2TtfContext) {
     let texture_creator = canvas.texture_creator();
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
@@ -591,6 +593,8 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
     let mut animation_timer = 0;
     let mut animation_start_timer = 0;
+
+    let mut enemy_defeated = 0;
 
     'running: loop {
         let (w_width, w_height) = canvas.window().size();
@@ -817,6 +821,13 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             canvas.copy(&wood_texture, None, rect).unwrap();
         }
 
+        if enemy_defeated >= 0 {
+            enemy_defeated -= 1;
+            if enemy_defeated == 0 && enemy_defeated_loop(&mut player_boat, &mut enemy_boat, &mut canvas, &textures, &ttf_context, &mut event_pump) {
+                break 'running;
+            }
+        }
+
         if animation_timer > 0 {
             animation_timer -= 1;
 
@@ -857,9 +868,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                         player_boat.wood += enemy_boat.wood;
                         player_boat.mineral += enemy_boat.mineral;
 
-                        if enemy_defeated_loop(&mut player_boat, &mut enemy_boat, &mut canvas, &textures, &font, &mut event_pump) {
-                            break 'running
-                        }
+                        enemy_defeated = 3;
                     }
                 }
                 if cur_enemy_attack_type == AttackType::NORMAL {
@@ -881,7 +890,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             }
         }
 
-        canvas.present()
+        canvas.present();
     }
 }
 
@@ -908,16 +917,38 @@ fn game_over_loop(mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textur
     }
 }
 
-fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, textures : &Vec<sdl2::render::Texture>, font : &sdl2::ttf::Font, event_pump : &mut sdl2::EventPump) -> bool {
+fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, textures : &Vec<sdl2::render::Texture>, ttf_context : &sdl2::ttf::Sdl2TtfContext, event_pump : &mut sdl2::EventPump) -> bool {
+    let mut font = ttf_context.load_font("roboto.ttf", FONT_SIZE-10).unwrap();
+    font.set_style(sdl2::ttf::STYLE_NORMAL);
+
     let (w_width, w_height) = canvas.window().size();
+    let texture_creator = canvas.texture_creator();
 
-    let rect = rect!((w_width - BATTLE_RESULT_BG_WIDTH) / 2, (w_height - BATTLE_RESULT_BG_HEIGHT) / 2, BATTLE_RESULT_BG_WIDTH, BATTLE_RESULT_BG_HEIGHT);
-    canvas.set_blend_mode(BlendMode::Blend);
-    canvas.set_draw_color(BATTLE_RESULT_BG_COLOR);
-    canvas.fill_rect(rect).unwrap();
-    canvas.set_blend_mode(BlendMode::None);
+    let middle_x = w_width / 2;
+    let top = (w_height - BATTLE_RESULT_BG_HEIGHT) / 2;
+    let left = (w_width - BATTLE_RESULT_BG_WIDTH) / 2;
 
-    canvas.present();
+    // background
+    for i in 0..2 {
+        let rect = rect!((w_width - BATTLE_RESULT_BG_WIDTH) / 2, (w_height - BATTLE_RESULT_BG_HEIGHT) / 2, BATTLE_RESULT_BG_WIDTH, BATTLE_RESULT_BG_HEIGHT);
+        canvas.set_blend_mode(BlendMode::Blend);
+        canvas.set_draw_color(BATTLE_RESULT_BG_COLOR);
+        canvas.fill_rect(rect).unwrap();
+        canvas.set_blend_mode(BlendMode::None);
+
+        // top message
+        {
+            let font_s = font.render("Voce ganhou X de madeira e Y de metal!").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(middle_x - font_t_info.width / 2, top, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+        }
+
+        canvas.present();
+    }
+
+    let mut option = 0;
 
     loop {
         //Event handling
@@ -927,11 +958,106 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                     return true;
                 },
 
-                Event::KeyUp { keycode: Some(Keycode::Return), .. } | Event::KeyUp { keycode: Some(Keycode::Space), .. } => {
-                    return false;
+                Event::MouseButtonUp { mouse_btn: button, x, y, .. } => {
+                    match button {
+                        sdl2::mouse::MouseButton::Left => {
+                            let rect1 = rect!(left + ACTION_HUD_BORDER, top + ACTION_HUD_BORDER + 40, BATTLE_RESULT_BUTTON_WIDTH, BATTLE_RESULT_BUTTON_HEIGHT);
+                            let rect2 = rect!(left + ACTION_HUD_BORDER * 2 + BATTLE_RESULT_BUTTON_WIDTH, top + ACTION_HUD_BORDER + 40,
+                                              BATTLE_RESULT_BUTTON_WIDTH, BATTLE_RESULT_BUTTON_HEIGHT);
+                            if option == 0 {
+                                if x >= rect1.x && x <= rect1.x + rect1.w && y >= rect1.y && y <= rect1.y + rect1.h {
+                                    option += 1;
+                                } else if x >= rect2.x && x <= rect2.x + rect2.w && y >= rect2.y && y <= rect2.y + rect2.h {
+                                    player_boat.health = (enemy_boat.max_health as f32 / 2.0).ceil() as isize;
+                                    player_boat.shield = 0;
+                                    player_boat.max_health = enemy_boat.max_health;
+                                    player_boat.obj.as_mut().unwrap().texture_id = enemy_boat.obj.unwrap().texture_id + 2;
+                                    player_boat.attacks = enemy_boat.attacks.clone();
+                                    player_boat.parts = enemy_boat.parts.clone();
+                                    option += 1;
+                                }
+                            } else if option == 1 {
+                                if x >= rect1.x && x <= rect1.x + rect1.w && y >= rect1.y && y <= rect1.y + rect1.h {
+                                    let mut health_to_buy = player_boat.wood / 5;
+                                    let shield_to_buy = player_boat.mineral / 5;
+                                    if health_to_buy > player_boat.max_health - player_boat.health {
+                                        health_to_buy = player_boat.max_health - player_boat.health;
+                                    }
+                                    player_boat.health += health_to_buy;
+                                    player_boat.shield += shield_to_buy;
+                                    player_boat.wood -= health_to_buy * 5;
+                                    player_boat.mineral -= shield_to_buy * 5;
+                                    option += 1;
+                                } else if x >= rect2.x && x <= rect2.x + rect2.w && y >= rect2.y && y <= rect2.y + rect2.h {
+                                    option += 1;
+                                }
+                            }
+                            if option == 2 { // next battle
+                                *enemy_boat = Boat{health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, attacks: vec!(AttackType::NORMAL),
+                                                  parts: vec!(Target::HELM, Target::POLE, Target::CANNON1),
+                                                  obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                            offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                return false;
+                            }
+                        },
+                        _ => {}
+                    }
                 },
                 _ => ()
             }
         }
+
+        // choose boat buttons
+        if option == 0 {
+            let bg_rect = rect!(left + ACTION_HUD_BORDER, top + ACTION_HUD_BORDER + 40, BATTLE_RESULT_BUTTON_WIDTH, BATTLE_RESULT_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(bg_rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let font_s = font.render("Ficar no seu barco").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(bg_rect.x + bg_rect.w / 2 - font_t_info.width as i32 / 2, bg_rect.y + bg_rect.h / 2 - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+
+            let bg_rect = rect!(left + ACTION_HUD_BORDER * 2 + BATTLE_RESULT_BUTTON_WIDTH, top + ACTION_HUD_BORDER + 40, BATTLE_RESULT_BUTTON_WIDTH, BATTLE_RESULT_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(bg_rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let font_s = font.render("Roubar barco").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(bg_rect.x + bg_rect.w / 2 - font_t_info.width as i32 / 2, bg_rect.y + bg_rect.h / 2 - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+        } else if option == 1 {
+            let bg_rect = rect!(left + ACTION_HUD_BORDER, top + ACTION_HUD_BORDER + 40, BATTLE_RESULT_BUTTON_WIDTH, BATTLE_RESULT_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(bg_rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let font_s = font.render("Consertar barco (100% = PRECO)").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(bg_rect.x + bg_rect.w / 2 - font_t_info.width as i32 / 2, bg_rect.y + bg_rect.h / 2 - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+
+            let bg_rect = rect!(left + ACTION_HUD_BORDER * 2 + BATTLE_RESULT_BUTTON_WIDTH, top + ACTION_HUD_BORDER + 40, BATTLE_RESULT_BUTTON_WIDTH, BATTLE_RESULT_BUTTON_HEIGHT);
+            canvas.set_blend_mode(BlendMode::Blend);
+            canvas.set_draw_color(UI_BUTTON_COLOR);
+            canvas.fill_rect(bg_rect).unwrap();
+            canvas.set_blend_mode(BlendMode::None);
+
+            let font_s = font.render("Não consertar barco (100% = PRECO)").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+            let font_t_info = font_t.query();
+            let rect = rect!(bg_rect.x + bg_rect.w / 2 - font_t_info.width as i32 / 2, bg_rect.y + bg_rect.h / 2 - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
+            canvas.copy(&font_t, None, rect).unwrap();
+        }
+
+        canvas.present();
     }
 }
