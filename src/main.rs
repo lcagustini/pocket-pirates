@@ -211,15 +211,21 @@ fn main() {
         texture_creator.load_texture("assets/player_SE.png").unwrap(),
         texture_creator.load_texture("assets/wood.png").unwrap(),
         texture_creator.load_texture("assets/mineral.png").unwrap(),
-        texture_creator.load_texture("assets/boat_small_NE.png").unwrap(),
+        texture_creator.load_texture("assets/boat_small_NE.png").unwrap(), // 10
         texture_creator.load_texture("assets/boat_small_NW.png").unwrap(),
         texture_creator.load_texture("assets/boat_small_SW.png").unwrap(),
-        texture_creator.load_texture("assets/boat_small_SE.png").unwrap(),
+        texture_creator.load_texture("assets/boat_small_SE.png").unwrap(), // 13
         texture_creator.load_texture("assets/steerwheel_dark.png").unwrap(),
         texture_creator.load_texture("assets/steerwheel.png").unwrap(),
         texture_creator.load_texture("assets/steerwheel_silver.png").unwrap(),
         texture_creator.load_texture("assets/ball.png").unwrap(),
         texture_creator.load_texture("assets/gameover.png").unwrap(),
+        texture_creator.load_texture("assets/ship_light_NW.png").unwrap(), // 19
+        texture_creator.load_texture("assets/ship_light_SE.png").unwrap(),
+        texture_creator.load_texture("assets/ship_light_SE.png").unwrap(), // 21
+        texture_creator.load_texture("assets/ship_dark_NW.png").unwrap(), // 22
+        texture_creator.load_texture("assets/ship_dark_SE.png").unwrap(),
+        texture_creator.load_texture("assets/ship_dark_SE.png").unwrap(), // 24
     );
 
     let map: [[usize; 30]; 30] = [
@@ -566,8 +572,6 @@ fn do_damage(boat : &mut Boat, damage: isize) -> bool {
 }
 
 fn do_enemy_attack(player : &Boat, enemy : &mut Boat, cur_attack : &mut AttackType, cur_target : &mut Target) {
-    println!("{} {}", player.can_attack, enemy.can_attack);
-
     if enemy.can_attack < 0 {
         enemy.can_attack += 1;
         return;
@@ -1511,7 +1515,8 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
 
         // top message
         {
-            let font_s = font.render("Voce ganhou X de madeira e Y de metal!").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let txt = format!("Você ganhou {} de madeira e {} de metal!", enemy_boat.wood, enemy_boat.mineral);
+            let font_s = font.render(&txt).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
             let rect = rect!(middle_x - font_t_info.width / 2, top, font_t_info.width, font_t_info.height);
@@ -1570,13 +1575,71 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                 player_boat.enabled_parts = player_boat.parts.clone();
                                 player_boat.can_attack = 0;
 
-                                *enemy_boat = Boat{health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5, can_attack: 0,
-                                                   attacks: [AttackType::NORMAL, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
-                                                   enabled_attacks: [AttackType::NORMAL, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
-                                                   parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
-                                                   enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
-                                                   obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
-                                                            offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                let h : isize = (random::<usize>() % 16) as isize + 5;
+                                let s : isize = (random::<usize>() % 11) as isize;
+                                let w : isize = (random::<usize>() % 41) as isize;
+                                let m : isize = (random::<usize>() % 16) as isize;
+                                let p_atks = vec!(AttackType::NORMAL, AttackType::NET, AttackType::HARPOON);
+                                let pa : isize = (random::<usize>() % 3) as isize;
+                                let c : isize = (random::<usize>() % 2) as isize;
+                                let p_t = vec!(19, 22);
+                                let pt : isize = (random::<usize>() % 2) as isize;
+                                let t = p_t[pt as usize];
+                                if pa == 0 {
+                                    if c == 1 {
+                                        *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
+                                                           attacks: [AttackType::NORMAL].iter().cloned().collect(),
+                                                           enabled_attacks: [AttackType::NORMAL].iter().cloned().collect(),
+                                                           parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                           enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                           obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                    } else {
+                                        *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
+                                                           attacks: [AttackType::NORMAL].iter().cloned().collect(),
+                                                           enabled_attacks: [AttackType::NORMAL].iter().cloned().collect(),
+                                                           parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                                                           enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                                                           obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                    }
+                                } else if pa == 1 {
+                                    if c == 1 {
+                                        *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
+                                                           attacks: [AttackType::NORMAL, p_atks[1]].iter().cloned().collect(),
+                                                           enabled_attacks: [AttackType::NORMAL, p_atks[1]].iter().cloned().collect(),
+                                                           parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                           enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                           obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                    } else {
+                                        *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
+                                                           attacks: [AttackType::NORMAL, p_atks[1]].iter().cloned().collect(),
+                                                           enabled_attacks: [AttackType::NORMAL, p_atks[1]].iter().cloned().collect(),
+                                                           parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                                                           enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                                                           obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                    }
+                                } else if pa == 2 {
+                                    if c == 1 {
+                                        *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
+                                                           attacks: [AttackType::NORMAL, p_atks[2]].iter().cloned().collect(),
+                                                           enabled_attacks: [AttackType::NORMAL, p_atks[2]].iter().cloned().collect(),
+                                                           parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                           enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
+                                                           obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                    } else {
+                                        *enemy_boat = Boat{health: h, max_health: h, shield: s, wood: w, mineral: m, can_attack: 0,
+                                                           attacks: [AttackType::NORMAL, p_atks[2]].iter().cloned().collect(),
+                                                           enabled_attacks: [AttackType::NORMAL, p_atks[2]].iter().cloned().collect(),
+                                                           parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                                                           enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
+                                                           obj: Some(Object{texture_id: t, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
+                                                                    offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+                                    }
+                                }
                                 return false;
                             }
                         },
@@ -1619,7 +1682,8 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
             canvas.fill_rect(bg_rect).unwrap();
             canvas.set_blend_mode(BlendMode::None);
 
-            let font_s = font.render("Consertar barco (100% = PRECO)").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let txt = format!("Consertar barco {}", (player_boat.max_health - player_boat.health) * 5);
+            let font_s = font.render(&txt).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
             let rect = rect!(bg_rect.x + bg_rect.w / 2 - font_t_info.width as i32 / 2, bg_rect.y + bg_rect.h / 2 - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
@@ -1631,7 +1695,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
             canvas.fill_rect(bg_rect).unwrap();
             canvas.set_blend_mode(BlendMode::None);
 
-            let font_s = font.render("Não consertar barco (100% = PRECO)").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+            let font_s = font.render("Não consertar barco").blended(Color::RGBA(255, 255, 255, 255)).unwrap();
             let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
             let font_t_info = font_t.query();
             let rect = rect!(bg_rect.x + bg_rect.w / 2 - font_t_info.width as i32 / 2, bg_rect.y + bg_rect.h / 2 - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
