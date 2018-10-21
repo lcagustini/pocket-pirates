@@ -22,7 +22,7 @@ const UI_BUTTON_COLOR: Color = Color{r: 255, g: 150, b: 150, a: 110};
 const ACTION_HUD_BORDER: u32 = 5;
 const ACTION_HUD_WIDTH: u32 = 700;
 const ACTION_HUD_HEIGHT: u32 = 200;
-const ACTION_HUD_BUTTON_WIDTH: u32 = 300;
+const ACTION_HUD_BUTTON_WIDTH: u32 = 342;
 const ACTION_HUD_BUTTON_HEIGHT: u32 = 95;
 
 const FONT_SIZE: u16 = 40;
@@ -222,22 +222,11 @@ fn main() {
         [2; 30],
         [2; 30]];
 
-    let mut objects: Vec<Object> = vec!(
-        Object{texture_id: 4,
-            x: 8,
-            y: 10,
-            offset_x: 35,
-            offset_y: -60},
-        Object{texture_id: 1,
-            x: 7,
-            y: 9,
-            offset_x: 0,
-            offset_y: -150},
-        Object{texture_id: 1,
-            x: 7,
-            y: 10,
-            offset_x: 0,
-            offset_y: -150});
+    let mut objects = vec!(
+        Object{texture_id: 4, x: 8, y: 10, offset_x: 35, offset_y: -60},
+        Object{texture_id: 1, x: 7, y: 9, offset_x: 0, offset_y: -150},
+        Object{texture_id: 1, x: 7, y: 10, offset_x: 0, offset_y: -150}
+        );
     let mut player_id = 0;
     let mut player_timer = 0;
     let mut player_last_pos = (0, 0);
@@ -476,15 +465,56 @@ fn bubble_sort(obj: &mut Vec<Object>, player_id: &mut usize) {
     }
 }
 
+enum ButtonType {
+    NONE,
+    ATTACK,
+    ABILITY,
+    CANNON1,
+    CANNON2,
+    HELM,
+    POLE
+}
+
+struct Button {
+    text : String,
+    enabled : bool,
+    rect : sdl2::rect::Rect,
+    typ : ButtonType
+}
+
+enum Menu {
+    DEFAULT,
+    ABILITY,
+    TARGET
+}
+
 fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textures : Vec<sdl2::render::Texture>, font : sdl2::ttf::Font, mut event_pump : sdl2::EventPump) {
     let texture_creator = canvas.texture_creator();
     let map: [[usize; 30]; 30] = [[2; 30]; 30];
 
     let mut enemy_boat = Boat {health: 20, wood: 15, mineral: 5,
-        obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
+    obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
 
     player_boat.obj.as_mut().unwrap().x = BOAT_PLAYER_COMBAT_X;
     player_boat.obj.as_mut().unwrap().y = BOAT_PLAYER_COMBAT_Y;
+
+
+    let (w_width, w_height) = canvas.window().size();
+    let mut cur_buttons = vec!(
+        Button{text: "Ataque".to_owned(), enabled: true, rect: rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
+               typ: ButtonType::ATTACK},
+        Button{text: "Habilidade".to_owned(), enabled: true, rect: rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH,
+                                                                         ACTION_HUD_BUTTON_HEIGHT),
+               typ: ButtonType::ABILITY},
+        Button{text: "".to_owned(), enabled: false, rect: rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT,
+                                                                ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
+               typ: ButtonType::NONE},
+        Button{text: "".to_owned(), enabled: false, rect: rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH,
+                                                                w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT,
+                                                                ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
+               typ: ButtonType::NONE}
+        );
+    let mut cur_menu = Menu::DEFAULT;
 
     'running: loop {
         let (w_width, w_height) = canvas.window().size();
@@ -494,6 +524,41 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
             match event {
                 Event::Quit {..} => {
                     break 'running
+                },
+
+                Event::MouseButtonUp { mouse_btn: button, x, y, .. } => {
+                    match button {
+                        sdl2::mouse::MouseButton::Left => {
+                            for i in 0..4 {
+                                let r = cur_buttons[i].rect;
+                                if cur_buttons[i].enabled && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h {
+                                    match cur_buttons[i].typ {
+                                        ButtonType::ATTACK => {
+                                            cur_menu = Menu::TARGET;
+                                            // TODO: depending on the enemy, the number of cannons may vary
+                                            cur_buttons[0].enabled = true;
+                                            cur_buttons[0].typ = ButtonType::POLE;
+                                            cur_buttons[0].text = "Mastro".to_owned();
+                                            cur_buttons[1].enabled = true;
+                                            cur_buttons[1].typ = ButtonType::HELM;
+                                            cur_buttons[1].text = "Timão".to_owned();
+                                            cur_buttons[2].enabled = true;
+                                            cur_buttons[2].typ = ButtonType::CANNON1;
+                                            cur_buttons[2].text = "Canhão 1".to_owned();
+                                            cur_buttons[3].enabled = true;
+                                            cur_buttons[3].typ = ButtonType::CANNON2;
+                                            cur_buttons[3].text = "Canhão 2".to_owned();
+                                        },
+                                        ButtonType::ABILITY => {
+                                            cur_menu = Menu::ABILITY;
+                                        },
+                                        _ => ()
+                                    }
+                                }
+                            }
+                        },
+                        _ => {}
+                    }
                 },
 
                 _ => {}
@@ -540,36 +605,30 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
         // draw actions HUD
         {
+            // background
             let rect = rect!(ACTION_HUD_BORDER, w_height - ACTION_HUD_HEIGHT - ACTION_HUD_BORDER, ACTION_HUD_WIDTH, ACTION_HUD_HEIGHT);
             canvas.set_blend_mode(BlendMode::Blend);
             canvas.set_draw_color(UI_BG_COLOR);
             canvas.fill_rect(rect).unwrap();
             canvas.set_blend_mode(BlendMode::None);
 
-            let rect = rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
-            canvas.set_blend_mode(BlendMode::Blend);
-            canvas.set_draw_color(UI_BUTTON_COLOR);
-            canvas.fill_rect(rect).unwrap();
-            canvas.set_blend_mode(BlendMode::None);
+            // buttons
+            for i in 0..4 {
+                if cur_buttons[i].enabled {
+                    canvas.set_blend_mode(BlendMode::Blend);
+                    canvas.set_draw_color(UI_BUTTON_COLOR);
+                    canvas.fill_rect(cur_buttons[i].rect).unwrap();
+                    canvas.set_blend_mode(BlendMode::None);
 
-            let rect = rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
-            canvas.set_blend_mode(BlendMode::Blend);
-            canvas.set_draw_color(UI_BUTTON_COLOR);
-            canvas.fill_rect(rect).unwrap();
-            canvas.set_blend_mode(BlendMode::None);
-
-            let rect = rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
-            canvas.set_blend_mode(BlendMode::Blend);
-            canvas.set_draw_color(UI_BUTTON_COLOR);
-            canvas.fill_rect(rect).unwrap();
-            canvas.set_blend_mode(BlendMode::None);
-
-            let rect = rect!(ACTION_HUD_BORDER * 3 + ACTION_HUD_BUTTON_WIDTH, w_height - ACTION_HUD_HEIGHT + ACTION_HUD_BORDER + ACTION_HUD_BUTTON_HEIGHT,
-                             ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT);
-            canvas.set_blend_mode(BlendMode::Blend);
-            canvas.set_draw_color(UI_BUTTON_COLOR);
-            canvas.fill_rect(rect).unwrap();
-            canvas.set_blend_mode(BlendMode::None);
+                    let font_s = font.render(&cur_buttons[i].text).blended(Color::RGBA(255, 255, 255, 255)).unwrap();
+                    let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
+                    let font_t_info = font_t.query();
+                    let middle_x = cur_buttons[i].rect.x + cur_buttons[i].rect.w / 2;
+                    let middle_y = cur_buttons[i].rect.y + cur_buttons[i].rect.h / 2;
+                    let rect = rect!(middle_x - font_t_info.width as i32 / 2, middle_y - font_t_info.height as i32 / 2, font_t_info.width, font_t_info.height);
+                    canvas.copy(&font_t, None, rect).unwrap();
+                }
+            }
         }
 
         // draw materials HUD
