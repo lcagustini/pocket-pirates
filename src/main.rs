@@ -131,6 +131,7 @@ struct Boat {
     obj: Option<Object>,
 
     attacks: HashSet<AttackType>,
+    enabled_attacks: HashSet<AttackType>,
     parts: HashSet<Target>,
     enabled_parts: HashSet<Target>,
 }
@@ -262,6 +263,7 @@ fn main() {
 
     let mut player_boat = Boat{health: 3, max_health: 3, shield: 2, wood: 0, mineral: 0, obj: None,
                                attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
+                               enabled_attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect()};
 
@@ -564,8 +566,8 @@ fn do_damage(boat : &mut Boat, damage: isize) -> bool {
 }
 
 fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, cur_target : &mut Target) {
-    let rand : usize = random::<usize>() % enemy.attacks.len();
-    let mut iter = enemy.attacks.iter();
+    let rand : usize = random::<usize>() % enemy.enabled_attacks.len();
+    let mut iter = enemy.enabled_attacks.iter();
     let mut attack: AttackType = AttackType::NORMAL;
     for _ in 0..rand {
         attack = *iter.next().unwrap();
@@ -583,7 +585,7 @@ fn do_enemy_attack(player : &Boat, enemy : &Boat, cur_attack : &mut AttackType, 
 
 fn update_menu_with_abilities(player_boat : &mut Boat, cur_buttons : &mut Vec<Button>) {
     let mut i = 1;
-    for atk in &player_boat.attacks {
+    for atk in &player_boat.enabled_attacks {
         if *atk == AttackType::NORMAL {
             continue;
         }
@@ -607,6 +609,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
     let mut enemy_boat = Boat {health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5,
                                attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
+                               enabled_attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1, Target::CANNON2].iter().cloned().collect(),
                                obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y, offset_x: BOAT_OFFSET_X, offset_y: BOAT_OFFSET_Y})};
@@ -1214,6 +1217,8 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                             canvas.present();
                             std::thread::sleep(std::time::Duration::from_millis(200));
                         }
+
+                        player_boat.enabled_attacks.remove(&AttackType::HARPOON);
                     },
                     _ => ()
                 }
@@ -1318,6 +1323,8 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                             canvas.present();
                             std::thread::sleep(std::time::Duration::from_millis(200));
                         }
+
+                        enemy_boat.enabled_attacks.remove(&AttackType::HARPOON);
                     }
 
                     _ => ()
@@ -1437,10 +1444,12 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
                                 }
                             }
                             if option == 2 { // next battle
+                                player_boat.enabled_attacks = player_boat.attacks.clone();
                                 player_boat.enabled_parts = player_boat.parts.clone();
 
                                 *enemy_boat = Boat{health: 3, max_health: 3, shield: 0, wood: 15, mineral: 5,
                                                    attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
+                                                   enabled_attacks: [AttackType::NORMAL, AttackType::ANCHOR, AttackType::NET, AttackType::HARPOON].iter().cloned().collect(),
                                                    parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                    enabled_parts: [Target::HELM, Target::POLE, Target::CANNON1].iter().cloned().collect(),
                                                    obj: Some(Object{texture_id: 11, x: BOAT_ENEMY_COMBAT_X, y: BOAT_ENEMY_COMBAT_Y,
