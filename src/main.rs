@@ -195,6 +195,7 @@ fn main() {
     let mut snd = Sound::new("assets/music.ogg").unwrap();
 
     // Play the Sound
+    snd.set_looping(true);
     snd.play();
 
     let mut font = ttf_context.load_font("roboto.ttf", FONT_SIZE).unwrap();
