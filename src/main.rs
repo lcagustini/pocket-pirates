@@ -837,10 +837,10 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                   LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
                 canvas.copy(&health, None, rect).unwrap();
             }
-            for i in player_boat.max_health..player_boat.max_health+player_boat.shield {
+            for i in 0..player_boat.shield {
                 let shield = &textures[16];
                 let tex_info = shield.query();
-                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, LIFE_BAR_Y,
+                let rect = rect!((LIFE_BAR_X + (tex_info.width as f32 * LIFE_BAR_ICON_SCALE) as isize) * i + LIFE_BAR_X, 35 + LIFE_BAR_Y,
                                   LIFE_BAR_ICON_SCALE * tex_info.width as f32, LIFE_BAR_ICON_SCALE * tex_info.height as f32);
                 canvas.copy(&shield, None, rect).unwrap();
             }
@@ -853,7 +853,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                 let shield = &textures[16];
                 let tex_info = shield.query();
 
-                let rect = rect!(5, 10.0 + LIFE_BAR_ICON_SCALE * tex_info.height as f32, 400, 4 * FONT_SIZE as u32 + 5);
+                let rect = rect!(5, 50.0 + LIFE_BAR_ICON_SCALE * tex_info.height as f32, 400, 4 * FONT_SIZE as u32 + 5);
                 canvas.set_blend_mode(BlendMode::Blend);
                 canvas.set_draw_color(UI_BG_COLOR);
                 canvas.fill_rect(rect).unwrap();
@@ -870,7 +870,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(8, 40.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
 
@@ -885,7 +885,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(8, 40.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
 
@@ -900,7 +900,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (2*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(8, 40.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (2*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
 
@@ -915,7 +915,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (3*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(8, 40.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (3*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
             }
@@ -925,7 +925,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                 let shield = &textures[16];
                 let tex_info = shield.query();
 
-                let rect = rect!(w_width - 400 - 5, 10.0 + LIFE_BAR_ICON_SCALE * tex_info.height as f32, 400, 4 * FONT_SIZE as u32 + 5);
+                let rect = rect!(w_width - 400 - 5, 300.0 + 10.0 + LIFE_BAR_ICON_SCALE * tex_info.height as f32, 400, 4 * FONT_SIZE as u32 + 5);
                 canvas.set_blend_mode(BlendMode::Blend);
                 canvas.set_draw_color(UI_BG_COLOR);
                 canvas.fill_rect(rect).unwrap();
@@ -942,7 +942,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(w_width - 400 + 8, 300.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
 
@@ -957,7 +957,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(w_width - 400 + 8, 300.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
 
@@ -972,7 +972,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (2*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(w_width - 400 + 8, 300.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (2*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
 
@@ -987,7 +987,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
                     let font_t = texture_creator.create_texture_from_surface(&font_s).unwrap();
                     let font_t_info = font_t.query();
-                    let rect = rect!(w_width - 400 + 8, (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (3*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
+                    let rect = rect!(w_width - 400 + 8, 300.0 + (LIFE_BAR_ICON_SCALE * tex_info.height as f32) + (3*font_t_info.height) as f32 + 7.0, font_t_info.width, font_t_info.height);
                     canvas.copy(&font_t, None, rect).unwrap();
                 }
             }
