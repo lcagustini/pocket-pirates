@@ -2,7 +2,6 @@ extern crate sdl2;
 extern crate rand;
 extern crate ears;
 
-use std::ops::{Add, Sub, Mul};
 use std::collections::HashSet;
 
 use rand::prelude::*;
@@ -69,49 +68,6 @@ const LIFE_BAR_Y: isize = 5;
 const LIFE_BAR_ICON_SCALE: f32 = 0.3;
 
 const HARPOON_DAMAGE: isize = 7;
-
-#[derive(Debug, Copy, Clone)]
-struct Vector {
-    x: f32,
-    y: f32,
-}
-impl Vector {
-    fn normalize(&mut self) {
-        let ln = ((self.x*self.x + self.y*self.y) as f32).sqrt();
-        if ln == 0.0 {
-            return;
-        }
-
-        let div = 1.0 / ln;
-        self.x *= div;
-        self.y *= div;
-    }
-
-    fn dot(&self, other: Vector) -> f32 {
-        self.x*other.x + self.y*other.y
-    }
-}
-impl Add for Vector {
-    type Output = Vector;
-
-    fn add(self, other: Vector) -> Vector {
-        Vector{ x: self.x + other.x, y: self.y + other.y }
-    }
-}
-impl Sub for Vector {
-    type Output = Vector;
-
-    fn sub(self, other: Vector) -> Vector {
-        Vector{ x: self.x - other.x, y: self.y - other.y }
-    }
-}
-impl Mul<f32> for Vector {
-    type Output = Vector;
-
-    fn mul(self, other: f32) -> Vector {
-        Vector{ x: other*self.x, y: other*self.y }
-    }
-}
 
 #[derive (Copy, Clone)]
 struct Object {
@@ -573,12 +529,6 @@ struct Button {
     typ : ButtonType
 }
 
-enum Menu {
-    DEFAULT,
-    ABILITY,
-    TARGET
-}
-
 // returns true if boat died
 fn do_damage(boat : &mut Boat, damage: isize) -> bool {
     let mut damage = damage;
@@ -668,7 +618,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
     player_boat.obj.as_mut().unwrap().y = BOAT_PLAYER_COMBAT_Y;
 
 
-    let (w_width, w_height) = canvas.window().size();
+    let (_w_width, w_height) = canvas.window().size();
     let mut cur_buttons = vec!(
         Button{text: "Atirar".to_owned(), enabled: true, rect: rect!(ACTION_HUD_BORDER * 2, w_height - ACTION_HUD_HEIGHT, ACTION_HUD_BUTTON_WIDTH, ACTION_HUD_BUTTON_HEIGHT),
                typ: ButtonType::ATTACK},
@@ -1112,7 +1062,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
 
         if enemy_defeated >= 0 {
             enemy_defeated -= 1;
-            if enemy_defeated == 0 && enemy_defeated_loop(&mut player_boat, &mut enemy_boat, &mut canvas, &textures, &ttf_context, &mut event_pump) {
+            if enemy_defeated == 0 && enemy_defeated_loop(&mut player_boat, &mut enemy_boat, &mut canvas, &ttf_context, &mut event_pump) {
                 break 'running;
             }
         }
@@ -1169,9 +1119,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                 ball_tex_info.width, ball_tex_info.height);
                                 canvas.copy(&ball_texture, None, rect).unwrap();
                             }
-                        },
-
-                        _ => ()
+                        }
                     }
                 }
             }
@@ -1204,8 +1152,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                                 ball_tex_info.width, ball_tex_info.height);
                                 canvas.copy(&ball_texture, None, rect).unwrap();
                             }
-                        },
-                        _ => ()
+                        }
                     }
                 }
             }
@@ -1349,8 +1296,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                             }
 
                             player_boat.enabled_attacks.remove(&AttackType::NET);
-                        },
-                        _ => ()
+                        }
                     }
                 }
 
@@ -1426,7 +1372,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                             }
                         },
                         AttackType::HARPOON => {
-                            let mut damage = HARPOON_DAMAGE;
+                            let damage = HARPOON_DAMAGE;
 
                             let miss =
                                 if player_boat.enabled_parts.contains(&Target::HELM) {
@@ -1485,9 +1431,7 @@ fn start_combat_phase(mut player_boat : Boat, mut canvas : sdl2::render::Canvas<
                             }
 
                             enemy_boat.enabled_attacks.remove(&AttackType::NET);
-                        },
-
-                        _ => ()
+                        }
                     }
                 }
 
@@ -1529,7 +1473,7 @@ fn game_over_loop(mut canvas : sdl2::render::Canvas<sdl2::video::Window>, textur
     }
 }
 
-fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, textures : &Vec<sdl2::render::Texture>, ttf_context : &sdl2::ttf::Sdl2TtfContext, event_pump : &mut sdl2::EventPump) -> bool {
+fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas : &mut sdl2::render::Canvas<sdl2::video::Window>, ttf_context : &sdl2::ttf::Sdl2TtfContext, event_pump : &mut sdl2::EventPump) -> bool {
     let mut font = ttf_context.load_font("roboto.ttf", FONT_SIZE-10).unwrap();
     font.set_style(sdl2::ttf::STYLE_NORMAL);
 
@@ -1541,7 +1485,7 @@ fn enemy_defeated_loop(player_boat : &mut Boat, enemy_boat : &mut Boat, canvas :
     let left = (w_width - BATTLE_RESULT_BG_WIDTH) / 2;
 
     // background
-    for i in 0..2 {
+    for _ in 0..2 {
         let rect = rect!((w_width - BATTLE_RESULT_BG_WIDTH) / 2, (w_height - BATTLE_RESULT_BG_HEIGHT) / 2, BATTLE_RESULT_BG_WIDTH, BATTLE_RESULT_BG_HEIGHT);
         canvas.set_blend_mode(BlendMode::Blend);
         canvas.set_draw_color(BATTLE_RESULT_BG_COLOR);
